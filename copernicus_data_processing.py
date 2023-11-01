@@ -19,7 +19,7 @@ def main(
         years = list(range(2013, 2014))  # list(range(..., ...))
 
     if months is None:
-        months = list(range(1, 3))  # list(range(1, 13))
+        months = list(range(1, 2))  # list(range(1, 13))
 
     deims_id = "102ae489-04e3-481d-97df-45905837dc1a"  # GCEF site
     # deims_id = "474916b5-8734-407f-9179-109083c031d8"  # Doode Bemde site, Belgium
