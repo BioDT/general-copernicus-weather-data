@@ -1,12 +1,9 @@
-cdsapi==0.6.1  # Climate Data Store (CDS) Application Program Interface (API), maybe adjust version or specify range or leave open or 'freeze' later? 
-# xarray==2023.8.0 
-numpy>=1.26.0
-netCDF4==1.6.4
-# cfgrib==0.9.10.4
+cdsapi==0.6.1
+numpy>=1.19.0
+netCDF4>=1.6.0
 timezonefinder==6.2.0
-suntime==1.2.5 
-beautifulsoup4==4.12.2
-# pandas==2.1.2  
+suntime==1.2.5
+beautifulsoup4>=4.11.0
 rasterio==1.3.8
 pyproj==3.6.1
 openpyxl==3.1.2
