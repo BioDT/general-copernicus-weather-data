@@ -529,6 +529,8 @@ def weather_data_2_txt_file(
     df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f")
     print(f"Text file with {data_resolution} resolution prepared.")
 
+    # ToDo: introduce separation here and make the part below an own function, to be used in a GM-specific BB, not general BB
+
     # Conversion to daily data as needed for Grassmind
     if data_resolution == "hourly":
         # Dates (omit last entry from last Day + 1 at 00:00)
