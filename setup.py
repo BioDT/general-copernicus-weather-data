@@ -1,21 +1,15 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 from pathlib import Path
 
 # Project metadata
-name = "CopernicusWeatherData"
-version = "1.0.0"
+name = "copernicus"
+version = "0.1.0"
 author = "Thomas Banitz, Franziska Taubert, BioDT"
 description = (
     "Retrieve weather data from Copernicus and prepare as GRASSMIND input files"
 )
-url = ""  # Replace with appropriate gitlab url
-license = ""  # Replace with appropriate license
-
-# Define the project's packages (if any)
-packages = find_packages()
-
-# # List script files in the 'scripts' folder, attempt to make modules from "scripts" folder available, didn't work.
-# script_files = [f"scripts.{p.stem}" for p in Path("scripts").glob("*.py")]
+url = "https://github.com/BioDT/general-copernicus-weather-data"
+license = "MIT"
 
 # Specify project dependencies from a requirements.txt file
 with open("requirements.txt", "r") as req_file:
@@ -29,7 +23,7 @@ setup(
     description=description,
     url=url,
     license=license,
-    packages=packages,
-    # py_modules=script_files,
+    entry_points={'console_scripts':
+        ['copernicus_data_processing = copernicus.data_processing:main']},
     install_requires=install_requires,
 )

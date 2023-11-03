@@ -1,12 +1,10 @@
 import argparse
 
-# import sys
-# sys.path.append("scripts")
-from scripts import get_weather_data as gwd
-from scripts import get_deims_coordinates as gdc
+from copernicus import get_weather_data as gwd
+from copernicus import get_deims_coordinates as gdc
 
 
-def main(
+def data_processing(
     data_sets,
     data_format,
     data_resolution,
@@ -58,7 +56,7 @@ def main(
     )
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Your description here")
 
     # Define command-line arguments
@@ -91,7 +89,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(
+    data_processing(
         data_sets=args.data_sets,
         data_format=args.data_format,
         data_resolution=args.data_resolution,
@@ -100,3 +98,7 @@ if __name__ == "__main__":
         coordinates=args.coordinates,
         deims_id=args.deims_id,
     )
+
+
+if __name__ == '__main__':
+    main()
