@@ -113,7 +113,6 @@ def construct_data_file_name(
     else:
         var_short = var_short[0]
 
-    project_root = ut.find_project_root()
     formatted_year = str(year)
     formatted_month = str(month).zfill(2)
 
@@ -128,8 +127,6 @@ def construct_data_file_name(
         file_name = folder / f"{location}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
     else:
         raise ValueError("Unsupported location format.")
-
-    file_name = os.path.join(project_root, file_name)
 
     return file_name
 
