@@ -529,6 +529,8 @@ def weather_data_2_txt_file(
         f"{months_list[-2][0]:04d}-{months_list[-2][1]:02d}",
         ["multVars"],
     )
+    # Create data directory if missing
+    Path(file_name).parent.mkdir(parents=True, exist_ok=True)
     df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f")
     print(f"Text file with {data_resolution} resolution prepared.")
 
