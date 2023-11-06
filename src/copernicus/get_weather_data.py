@@ -7,6 +7,7 @@ import pandas as pd
 from . import utils as ut
 import statistics as stats
 import numpy as np
+from pathlib import Path
 
 # import xarray
 
@@ -104,6 +105,8 @@ def construct_data_file_name(
     month,
     var_short,
 ):
+    folder = Path(folder)
+
     # Set default var name if multiple vars, or get var name from list if one var
     if len(var_short) > 1:
         var_short = "multVars"
@@ -120,9 +123,9 @@ def construct_data_file_name(
     }:  # location as dictionary with lat, lon
         formatted_lat = f"lat{location['lat']:.2f}".replace(".", "-")
         formatted_lon = f"lon{location['lon']:.2f}".replace(".", "-")
-        file_name = f"{folder}\\{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
+        file_name = folder / f"{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
     elif isinstance(location, str):  # location as string (DEIMS.iD)
-        file_name = f"{folder}\\{location}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
+        file_name = folder / f"{location}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
     else:
         raise ValueError("Unsupported location format.")
 
@@ -517,7 +520,7 @@ def weather_data_2_txt_file(
 
     # Save DataFrame to CSV
     file_name = construct_data_file_name(
-        ".\\weatherDataPrepared\\",
+        "weatherDataPrepared",
         data_set,
         data_resolution,
         ".txt",
@@ -609,7 +612,7 @@ def weather_data_2_txt_file(
 
         # Save DataFrame to CSV, FileName with DEIMS.iD if existing
         file_name = construct_data_file_name(
-            ".\\weatherDataPrepared\\",
+            "weatherDataPrepared",
             data_set,
             "daily",
             ".txt",
