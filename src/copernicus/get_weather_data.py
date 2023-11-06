@@ -323,6 +323,9 @@ def download_weather_data(data_set, data_requests, data_resolution):
 
     if data_resolution == "hourly":
         for request, file_name in data_requests:
+            # Create data directory if missing
+            Path(file_name).parent.mkdir(parents=True, exist_ok=True)
+            # Retrieve data
             c.retrieve(data_set, request, file_name)
     # # Option for daily requests not fully developed!
     # elif data_resolution == "daily":
