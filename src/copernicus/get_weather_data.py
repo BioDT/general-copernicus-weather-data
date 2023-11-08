@@ -7,6 +7,7 @@ import pandas as pd
 from . import utils as ut
 import statistics as stats
 import numpy as np
+from pathlib import Path
 
 # import xarray
 
@@ -104,13 +105,14 @@ def construct_data_file_name(
     month,
     var_short,
 ):
+    folder = Path(folder)
+
     # Set default var name if multiple vars, or get var name from list if one var
     if len(var_short) > 1:
         var_short = "multVars"
     else:
         var_short = var_short[0]
 
-    project_root = ut.find_project_root()
     formatted_year = str(year)
     formatted_month = str(month).zfill(2)
 
@@ -120,13 +122,11 @@ def construct_data_file_name(
     }:  # location as dictionary with lat, lon
         formatted_lat = f"lat{location['lat']:.2f}".replace(".", "-")
         formatted_lon = f"lon{location['lon']:.2f}".replace(".", "-")
-        file_name = f"{folder}\\{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
+        file_name = folder / f"{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
     elif isinstance(location, str):  # location as string (DEIMS.iD)
-        file_name = f"{folder}\\{location}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
+        file_name = folder / f"{location}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
     else:
         raise ValueError("Unsupported location format.")
-
-    file_name = os.path.join(project_root, file_name)
 
     return file_name
 
@@ -320,6 +320,9 @@ def download_weather_data(data_set, data_requests, data_resolution):
 
     if data_resolution == "hourly":
         for request, file_name in data_requests:
+            # Create data directory if missing
+            Path(file_name).parent.mkdir(parents=True, exist_ok=True)
+            # Retrieve data
             c.retrieve(data_set, request, file_name)
     # # Option for daily requests not fully developed!
     # elif data_resolution == "daily":
@@ -517,7 +520,7 @@ def weather_data_2_txt_file(
 
     # Save DataFrame to CSV
     file_name = construct_data_file_name(
-        ".\\weatherDataPrepared\\",
+        "weatherDataPrepared",
         data_set,
         data_resolution,
         ".txt",
@@ -526,6 +529,8 @@ def weather_data_2_txt_file(
         f"{months_list[-2][0]:04d}-{months_list[-2][1]:02d}",
         ["multVars"],
     )
+    # Create data directory if missing
+    Path(file_name).parent.mkdir(parents=True, exist_ok=True)
     df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f")
     print(f"Text file with {data_resolution} resolution prepared.")
 
@@ -609,7 +614,7 @@ def weather_data_2_txt_file(
 
         # Save DataFrame to CSV, FileName with DEIMS.iD if existing
         file_name = construct_data_file_name(
-            ".\\weatherDataPrepared\\",
+            "weatherDataPrepared",
             data_set,
             "daily",
             ".txt",

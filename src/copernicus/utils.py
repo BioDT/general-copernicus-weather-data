@@ -5,22 +5,6 @@ from timezonefinder import TimezoneFinder as tzf
 from suntime import Sun, SunTimeException
 
 
-def find_project_root():
-    current_dir = os.path.abspath(
-        os.path.dirname(__file__)
-    )  # Get the absolute path of the current script's directory
-    marker_name = "requirements.txt"
-
-    # Start from the current directory and go up the directory tree until the marker is found
-    while current_dir:
-        marker_path = os.path.join(current_dir, marker_name)
-        if os.path.exists(marker_path):
-            return current_dir  # Found the marker, return the current directory as the project root
-        current_dir = os.path.dirname(current_dir)  # Move up one directory
-
-    raise ValueError("Project root not found.")
-
-
 def is_dict_of_2_floats(variable):
     if isinstance(variable, dict) and len(variable) == 2:
         for key, value in variable.items():
