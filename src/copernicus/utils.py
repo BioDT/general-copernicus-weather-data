@@ -1,11 +1,27 @@
+"""
+Module Name: get_weather_data.py
+Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
+Date: November 8, 2023
+Description: Utility functions for copernicus building block. 
+"""
 import os
 import pytz
 import datetime
 from timezonefinder import TimezoneFinder as tzf
 from suntime import Sun, SunTimeException
+import deims
 
 
 def is_dict_of_2_floats(variable):
+    """
+    Check if 'variable' is a dictionary of two float values.
+
+    Args:
+        variable (dict): Input dictionary to check.
+
+    Returns:
+        bool: True if 'variable' is a valid dictionary, False otherwise.
+    """
     if isinstance(variable, dict) and len(variable) == 2:
         for key, value in variable.items():
             if not isinstance(value, float):
@@ -15,12 +31,31 @@ def is_dict_of_2_floats(variable):
 
 
 def is_leap_year(year):
+    """
+    Check if a given year is a leap year.
+
+    Args:
+        year (int): The year.
+
+    Returns:
+        bool: True if the year is a leap year, False otherwise.
+    """
     # A year is a leap year if it is divisible by 4,
     # except for years that are divisible by 100 but not by 400
     return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
 
 
 def get_days_in_month(year, month):
+    """
+    Get the number of days in a month for a given year, considering leap years.
+
+    Args:
+        year (int): The year.
+        month (int): The month.
+
+    Returns:
+        int: Number of days in the specified month.
+    """
     # Define the number of days in each month, considering leap years
     days_in_month = {
         1: 31,  # January
@@ -47,11 +82,30 @@ def get_days_in_month(year, month):
 
 
 def generate_day_values(year, month):
-    # Generate day value strings based on the number of days in the month
+    """
+    Generate day value strings for a given year and month.
+
+    Args:
+        year (int): The year.
+        month (int): The month.
+
+    Returns:
+        list: List of day value strings.
+    """
+
     return [str(i).zfill(2) for i in range(1, get_days_in_month(year, month) + 1)]
 
 
 def format_offset(offset_seconds):
+    """
+    Format a time zone offset in hours and minutes.
+
+    Args:
+        offset_seconds (int): Time zone offset in seconds.
+
+    Returns:
+        str: Formatted time zone offset string (e.g. 'UTC+02:00').
+    """
     hours, remainder = divmod(abs(offset_seconds), 3600)
     minutes = remainder // 60
     sign = "+" if offset_seconds >= 0 else "-"
@@ -61,6 +115,15 @@ def format_offset(offset_seconds):
 
 
 def get_time_zone(coordinates):
+    """
+    Get the time zone for a given set of coordinates.
+
+    Args:
+        coordinates (dict): Coordinates with 'lat' and 'lon'.
+
+    Returns:
+        str: Time zone as formatted string (e.g. 'UTC+02:00').
+    """
     tz_loc = tzf().timezone_at(lat=coordinates["lat"], lon=coordinates["lon"])
 
     if tz_loc:
@@ -76,7 +139,16 @@ def get_time_zone(coordinates):
 
 
 def get_day_length(coordinates, date_str_list):
-    # Get day light durations in hours for given location and dates
+    """
+    Get day length in hours for a given location and list of dates.
+
+    Args:
+        coordinates (dict): Coordinates with 'lat' and 'lon'.
+        date_str_list (list): List of date strings.
+
+    Returns:
+        list: List of day lengths in hours for the specified dates.
+    """
     sun = Sun(coordinates["lat"], coordinates["lon"])
     day_lengths = []
 
@@ -97,7 +169,15 @@ def get_day_length(coordinates, date_str_list):
 
 
 def get_data_suffix(data_format):
-    #  Determine the data file ending based on the data format
+    """
+    Determine data file ending based on data format.
+
+    Args:
+        data_format (str): Data format ('netcdf' or 'grib').
+
+    Returns:
+        str: Data file suffix.
+    """
     if data_format == "netcdf":
         data_suffix = ".nc"
     elif data_format == "grib":
@@ -106,3 +186,22 @@ def get_data_suffix(data_format):
         raise ValueError("Unsupported data format")
 
     return data_suffix
+
+
+def get_deims_coordinates(deims_id):
+    """
+    Get coordinates for a DEIMS.iD.
+
+    Args:
+        deims_id (str): DEIMS.iD.
+
+    Returns:
+        dict: Coordinates as a dictionary with 'lat' and 'lon'.
+    """
+    deims_gdf = deims.getSiteCoordinates(deims_id, filename=None)
+    # deims_gdf = deims.getSiteBoundaries(deims_id, filename=None)  # option: collect all coordinates from deims_gdf.boundary[0] ...
+    lon = deims_gdf.geometry[0].x
+    lat = deims_gdf.geometry[0].y
+    print(f"Coordinates for DEIMS.id '{deims_id}' found.")
+    print(f"Latitude: {lat}, Longitude: {lon}")
+    return {"lat": lat, "lon": lon}

@@ -1,33 +1,42 @@
-import argparse
+"""
+Module Name: data_processing.py
+Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
+Date: November 8, 2023
+Description: Building block for obtaining selected weather data at given location 
+             (0.1° x 0.1° spatial resolution) for desired time periods, at hourly 
+             resolution, e.g. from Copernicus ERA5-Land dataset. 
+"""
 
 from copernicus import get_weather_data as gwd
-from copernicus import get_deims_coordinates as gdc
-
-
-# test line for creating a change
+from . import utils as ut
 
 
 def data_processing(
     data_sets,
-    data_format,
-    data_resolution,
+    final_resolution,
     years,
     months,
     coordinates,
     deims_id,
 ):
-    if years is None:
-        years = list(range(2013, 2014))  # list(range(..., ...))
+    """
+    Download data from CDS API. Convert to .txt files.
 
-    if months is None:
-        months = list(range(1, 2))  # list(range(1, 13))
-
-    deims_id = "102ae489-04e3-481d-97df-45905837dc1a"  # GCEF site
-    # deims_id = "474916b5-8734-407f-9179-109083c031d8"  # Doode Bemde site, Belgium
+    Args:
+        data_sets (list of str): Names of Copernicus datasets.
+        final_resolution (str): Resolution for final text file ("hourly" or "daily").
+        years (list of int): Years list.
+        months (list of int): Months list.
+        coordinates (list of dict): List of dictionaries with "lat" and "lon" keys.
+        deims_id (str): Identifier of the eLTER site.
+    """
+    # hard coded because only options for now, but still passed as args to functions using them
+    data_resolution = "hourly"
+    data_format = "netcdf"
 
     if coordinates is None:
         if deims_id:
-            coordinates = gdc.get_deims_coordinates(deims_id)
+            coordinates = ut.get_deims_coordinates(deims_id)
         else:
             raise ValueError(
                 "No location defined. Please provide coordinates or DEIMS.iD!"
@@ -36,7 +45,7 @@ def data_processing(
     months_list = gwd.construct_months_list(years, months)
     data_var_specs = gwd.get_var_specs()
 
-    for data_set in data_sets:
+    for data_set in data_sets:  # can be simplified when only ERA5-Land dataset is used
         data_requests = gwd.configure_data_request(
             data_set,
             data_var_specs,
@@ -53,55 +62,8 @@ def data_processing(
         data_var_specs,
         data_format,
         data_resolution,
+        final_resolution,
         deims_id,
         coordinates,
         months_list,
     )
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Your description here")
-
-    # Define command-line arguments
-    parser.add_argument(
-        "--data_sets",
-        nargs="*",
-        default=["reanalysis-era5-land", "reanalysis-era5-single-levels"],
-        help="List of data sets",
-    )
-    parser.add_argument(
-        "--data_format",
-        default="netcdf",
-        choices=["netcdf", "grib"],
-        help="Data format",
-    )
-    parser.add_argument(
-        "--data_resolution",
-        default="hourly",
-        choices=["hourly", "daily"],
-        help="Data resolution",
-    )
-    parser.add_argument("--years", nargs="*", type=int, help="List of years")
-    parser.add_argument("--months", nargs="*", type=int, help="List of months")
-    parser.add_argument(
-        "--coordinates",
-        type=lambda s: dict(lat=float(s.split(",")[0]), lon=float(s.split(",")[1])),
-        help="Coordinates as 'lat,lon'",
-    )
-    parser.add_argument("--deims_id", help="DEIMS.iD")
-
-    args = parser.parse_args()
-
-    data_processing(
-        data_sets=args.data_sets,
-        data_format=args.data_format,
-        data_resolution=args.data_resolution,
-        years=args.years,
-        months=args.months,
-        coordinates=args.coordinates,
-        deims_id=args.deims_id,
-    )
-
-
-if __name__ == "__main__":
-    main()
