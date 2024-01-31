@@ -72,7 +72,7 @@ def get_var_specs():
         },
         "temperature": {
             "long_name": "2m_temperature",
-            "short_name": "t2m",
+            "short_name": "2t",
             "data_set_hourly": "reanalysis-era5-land",
             "data_set_daily": "tool.toolbox.orchestrator.workflow",
             "daily_stat": "daily_mean",
@@ -114,6 +114,51 @@ def get_var_specs():
             "daily_stat": "daily_mean",  # daily sum not possible
             "col_name_raw": "PET_single[mm]",
             "col_name": "PET_single[mm]",  # can be adjusted for final files
+        },
+        "surface_latent_heat_flux": {
+            "long_name": "surface_latent_heat_flux",
+            "short_name": "slhf",
+            "data_set_hourly": "reanalysis-era5-land",
+            "data_set_daily": "tool.toolbox.orchestrator.workflow",
+            "daily_stat": "daily_sum",  # ??
+            "col_name_raw": "SLHF[Jm-2]",  # ??
+            "col_name": "SLHF[Jm-2]",  # can be adjusted for final files
+        },
+        "eastward_wind": {
+            "long_name": "10m_u_component_of_wind",
+            "short_name": "u10",
+            "data_set_hourly": "reanalysis-era5-land",
+            "data_set_daily": "tool.toolbox.orchestrator.workflow",
+            "daily_stat": "daily_mean",  # ??
+            "col_name_raw": "U10[ms-1]",  # ??
+            "col_name": "U10[ms-1]",  # can be adjusted for final files
+        },
+        "northward_wind": {
+            "long_name": "10m_v_component_of_wind",
+            "short_name": "v10",
+            "data_set_hourly": "reanalysis-era5-land",
+            "data_set_daily": "tool.toolbox.orchestrator.workflow",
+            "daily_stat": "daily_mean",  # ??
+            "col_name_raw": "V10[ms-1]",  # ??
+            "col_name": "V10[ms-1]",  # can be adjusted for final files
+        },
+        "dewpoint_temperature": {
+            "long_name": "2m_dewpoint_temperature",
+            "short_name": "2d",
+            "data_set_hourly": "reanalysis-era5-land",
+            "data_set_daily": "tool.toolbox.orchestrator.workflow",
+            "daily_stat": "daily_mean",
+            "col_name_raw": "DewpointTemperature[degC]",  # check?
+            "col_name": "DewpointTemperature[degC]",  # check?
+        },
+        "surface_pressure": {
+            "long_name": "surface_pressure",
+            "short_name": "sp",
+            "data_set_hourly": "reanalysis-era5-land",
+            "data_set_daily": "tool.toolbox.orchestrator.workflow",
+            "daily_stat": "daily_mean",
+            "col_name_raw": "SurfacePressure[Pa]",  # check?
+            "col_name": "SurfacePressure[Pa]",  # check?
         },
     }
 

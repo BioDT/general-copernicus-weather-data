@@ -1,5 +1,5 @@
 """
-Module Name: get_weather_data.py
+Module Name: utils.py
 Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
 Date: November 8, 2023
 Description: Utility functions for copernicus building block. 
