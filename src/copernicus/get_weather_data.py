@@ -8,7 +8,7 @@ import cdsapi
 import netCDF4
 from netCDF4 import num2date
 import pandas as pd
-from . import utils as ut
+from copernicus import utils as ut
 import statistics as stats
 import numpy as np
 from pathlib import Path
