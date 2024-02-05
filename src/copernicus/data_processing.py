@@ -8,7 +8,7 @@ Description: Building block for obtaining selected weather data at given locatio
 """
 
 from copernicus import get_weather_data as gwd
-from . import utils as ut
+from copernicus import utils as ut
 
 
 def data_processing(
