@@ -4,12 +4,14 @@ Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
 Date: November 8, 2023
 Description: Utility functions for copernicus building block. 
 """
-import os
-import pytz
+
+# import os
+
 import datetime
-from timezonefinder import TimezoneFinder as tzf
-from suntime import Sun, SunTimeException
 import deims
+import pytz
+from suntime import Sun, SunTimeException
+from timezonefinder import TimezoneFinder as tzf
 
 
 def is_dict_of_2_floats(variable):
