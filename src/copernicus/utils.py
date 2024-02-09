@@ -5,8 +5,6 @@ Date: November 8, 2023
 Description: Utility functions for copernicus building block. 
 """
 
-# import os
-
 import datetime
 import deims
 import pytz
@@ -140,13 +138,13 @@ def get_time_zone(coordinates):
     raise ValueError("Time zone not found.")
 
 
-def get_day_length(coordinates, date_str_list):
+def get_day_length(coordinates, date_iterable):
     """
     Get day length in hours for a given location and list of dates.
 
     Args:
         coordinates (dict): Coordinates with 'lat' and 'lon'.
-        date_str_list (list): List of date strings.
+        date_iterable (iterable): Iterable of date strings.
 
     Returns:
         list: List of day lengths in hours for the specified dates.
@@ -154,7 +152,7 @@ def get_day_length(coordinates, date_str_list):
     sun = Sun(coordinates["lat"], coordinates["lon"])
     day_lengths = []
 
-    for date_str in date_str_list:
+    for date_str in date_iterable:
         try:
             year, month, day = map(int, date_str.split("-"))
             date = datetime.date(year, month, day)
