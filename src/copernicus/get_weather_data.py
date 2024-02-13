@@ -89,8 +89,8 @@ def get_var_specs():
             "data_set_hourly": "reanalysis-era5-land",
             "daily_stat": "daily_maximum",
             "unit_conversion": 0,
-            "col_name_hourly": "SSRD_PPFD[Jm-2] (acc.)",
-            "col_name_daily": "PPFD_down[µmolm-2s-1]",
+            "col_name_hourly": "SSRD[Jm-2] (acc.)",
+            "col_name_daily": "PPFD_down[µmolm-2s-1]",  # as converted to PAR
         },
         "solar_radiation_net": {
             "long_name": "surface_net_solar_radiation",
@@ -98,8 +98,8 @@ def get_var_specs():
             "data_set_hourly": "reanalysis-era5-land",
             "daily_stat": "daily_maximum",
             "unit_conversion": 0,
-            "col_name_hourly": "SSR_PPFD[Jm-2] (acc.)",
-            "col_name_daily": "PPFD_net[mmolm-2s-1]",
+            "col_name_hourly": "SSR[Jm-2] (acc.)",
+            "col_name_daily": "SSR[Jm-2]",
         },
         "surface_latent_heat_flux": {
             "long_name": "surface_latent_heat_flux",
@@ -108,7 +108,7 @@ def get_var_specs():
             "daily_stat": "daily_sum",
             "unit_conversion": 0,
             "col_name_hourly": "SLHF[Jm-2] (acc.)",
-            "col_name_daily": "",
+            "col_name_daily": "SLHF[J/m2]",
         },
         "eastward_wind": {
             "long_name": "10m_u_component_of_wind",
@@ -506,7 +506,7 @@ def weather_data_2_txt_file(
         time = df_collect["time"][:-24:24].str.split("T").str[0].values
 
         # Day lengths
-        day_lengths = ut.get_day_length(coordinates, time)
+        day_length = ut.get_day_length(coordinates, time)
 
         # Precipitation (omit first entry from first Day at 00:00)
         precipitation = df_collect[data_var_specs["precipitation"]["col_name_hourly"]][
@@ -525,10 +525,11 @@ def weather_data_2_txt_file(
         ].values
         # Convert net radiation to PAR
         ssrd_par = cwd.par_from_net_radiation(ssrd)
-        # ssr = df_collect[data_var_specs["solar_radiation_net"]["col_name_hourly"]][24::24].values
+        ssr = df_collect[data_var_specs["solar_radiation_net"]["col_name_hourly"]][
+            24::24
+        ].values
 
-        # PET replaced by calculation using PyETo package
-        # Code in commits before 2024-01
+        # PET replaced by calculation, Code for reading from CDS in commits before 2024-01
 
         # CO2 default value 400
         co2 = [400] * len(time)
@@ -553,23 +554,24 @@ def weather_data_2_txt_file(
         dewpoint_temperature_hourly = df_collect[
             data_var_specs["dewpoint_temperature"]["col_name_hourly"]
         ].values
-        # dewpoint_temperature = cwd.daily_mean_00_24(dewpoint_temperature_hourly)
+        dewpoint_temperature = cwd.daily_mean_00_24(dewpoint_temperature_hourly)
 
         # Surface pressure (get daily means with average of 00:00 and 24:00 as one of 24 values)
         surface_pressure = cwd.daily_mean_00_24(
             df_collect[data_var_specs["surface_pressure"]["col_name_hourly"]].values
         )
 
-        pet_fao = cwd.get_pet(
-            ssrd,
+        pet_fao = cwd.get_pet_fao(
+            ssr,
             slhf,
             temperature,
             temperature_hourly,
             wind_speed_2m,
             dewpoint_temperature_hourly,
             surface_pressure,
-            "fao",
         )
+
+        pet_thornthwaite = cwd.get_pet_thornthwaite(temperature, day_length, time)
 
         # Overwrite hourly dataframe with daily values
         df_collect = pd.DataFrame(
@@ -578,9 +580,13 @@ def weather_data_2_txt_file(
                 data_var_specs["precipitation"]["col_name_daily"]: precipitation,
                 data_var_specs["temperature"]["col_name_daily"]: temperature,
                 data_var_specs["solar_radiation_down"]["col_name_daily"]: ssrd_par,
-                "Daylength[h]": day_lengths,
+                "Daylength[h]": day_length,
                 "PET_fao[mm]": pet_fao,
+                "PET_thornthwaite[mm]": pet_thornthwaite,
                 "CO2[ppm]": co2,
+                "SSRD[Jm-2]": ssrd,
+                data_var_specs["solar_radiation_net"]["col_name_daily"]: ssr,
+                data_var_specs["surface_latent_heat_flux"]["col_name_daily"]: slhf,
             }
         )
 

@@ -7,6 +7,7 @@ Description: Utility functions for copernicus building block.
 
 import datetime
 import deims
+import numpy as np
 import pytz
 from suntime import Sun, SunTimeException
 from timezonefinder import TimezoneFinder as tzf
@@ -165,7 +166,7 @@ def get_day_length(coordinates, date_iterable):
             print("Error: {0}.".format(e))
             day_lengths.append(0)
 
-    return day_lengths
+    return np.array(day_lengths)
 
 
 def get_data_suffix(data_format):
