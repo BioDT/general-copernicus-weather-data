@@ -571,7 +571,13 @@ def weather_data_2_txt_file(
             surface_pressure,
         )
 
-        pet_thornthwaite = cwd.get_pet_thornthwaite(temperature, day_length, time)
+        pet_thornthwaite = cwd.get_pet_thornthwaite(
+            temperature,
+            temperature_hourly,
+            day_length,
+            time,
+            use_effective_temperature=False,
+        )
 
         # Overwrite hourly dataframe with daily values
         df_collect = pd.DataFrame(

@@ -175,6 +175,36 @@ def monthly_mean(values_daily, time):
     return np.array(monthly_means).reshape(len(unique_years), 12)
 
 
+def effective_temperature(temperature_hourly, day_length, correct_by_day_length=False):
+    """
+    Calculate daily effective temperature based on hourly temperature data and day lengths.
+
+    Args:
+        temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC).
+        day_length (numpy.ndarray): Daily day length (unit: hours).
+        correct_by_day_length(bool): Apply day length correction (default is False).
+
+    Returns:
+        numpy.ndarray: Array of effective temperature values.
+    """
+    t_max = daily_max_00_24(temperature_hourly)
+    t_min = daily_min_00_24(temperature_hourly)
+
+    if correct_by_day_length:
+        # day length correction, Eqs. (6, 7) in Pereira and Pruitt 2004, k = 0.69
+        day_night_ratio = day_length / (24 - day_length)
+        t_eff = 0.69 / 2 * (3 * t_max - t_min) * day_night_ratio
+
+        # Tavg ≤ Tef∗ ≤ Tmax
+        t_eff = np.maximum(t_eff, (t_max + t_min) / 2)
+        t_eff = np.minimum(t_eff, t_max)
+    else:
+        # no day length correction, Eq. (6) in Pereira and Pruitt 2004, k = 0.72
+        t_eff = 0.72 / 2 * (3 * t_max - t_min)
+
+    return t_eff
+
+
 def wind_speed_from_u_v(u_component, v_component):
     """
     Calculate wind speed from u and v components.
@@ -197,7 +227,7 @@ def wind_speed_height_change(wind_speed, height1=10, height2=2, z0=0.03):
         wind_speed (float or numpy.ndarray): Wind speed at height1 (unit: m/s).
         height1 (float, optional): Initial height. Default is 10 (unit: m).
         height2 (float, optional): Final height. Default is 2 (unit: m).
-        z0 (float, optional): Roughness length. Defaults is 0.03 (unit: m).
+        z0 (float, optional): Roughness length. Default is 0.03 (unit: m).
 
     Returns:
         numpy.ndarray: Wind speed at height2 (unit: m/s).
@@ -298,14 +328,13 @@ def get_pet_fao(
     Eq. (13) in Allen et al. 1998
 
     Args:
-        ssr (float or numpy.ndarray): Surface net solar radiation (unit: J/m²/d).
-        slhf (float or numpy.ndarray): Surface latent heat flux (unit: J/m²/d).
+        ssr (numpy.ndarray): Surface net solar radiation (unit: J/m²/d).
+        slhf (numpy.ndarray): Surface latent heat flux (unit: J/m²/d).
         temperature (numpy.ndarray): Daily mean temperature (unit: degC).
         temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC).
-        wind_speed_2m (float or numpy.ndarray): Wind speed at 2 meters height (unit: m/s).
+        wind_speed_2m (numpy.ndarray): Wind speed at 2 meters height (unit: m/s).
         dewpoint_temperature_hourly (numpy.ndarray): Hourly dewpoint temperature (unit: degC).
         surface_pressure (numpy.ndarray): Surface atmospheric pressure (unit: kPa).
-        method (str, optional): PET calculation method. Default is "fao".
 
     Returns:
         numpy.ndarray: Potential Evapotranspiration (PET) values (unit: mm).
@@ -350,15 +379,19 @@ def get_pet_fao(
     return np.maximum(pet_fao, 0)
 
 
-def get_pet_thornthwaite(temperature, day_length, time):
+def get_pet_thornthwaite(
+    temperature, temperature_hourly, day_length, time, use_effective_temperature=True
+):
     """
     Calculate Potential Evapotranspiration (PET) using the Thornthwaite equation.
     Daily version, Eqs. (1-5) in Pereira and Pruitt 2004
 
     Args:
-        temperature (array-like):  Daily mean temperature (unit: degC).
-        day_length (array-like): Daily day length (unit: hours).
+        temperature (numpy.ndarray):  Daily mean temperature (unit: degC).
+        temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC).
+        day_length (numpy.ndarray): Daily day length (unit: hours).
         time (array-like): Array of daily time strings in the format yyyy-mm-dd.
+        use_effective_temperature(bool): Effective temperatures instead of daily means (default is True).
 
     Returns:
         numpy.ndarray: Potential Evapotranspiration (PET) values (unit: mm).
@@ -368,33 +401,43 @@ def get_pet_thornthwaite(temperature, day_length, time):
     exponent_a_yearly = exponent_a(heat_index_yearly)
     correct_to_daily = day_length / 360  # Eq. (5) in Pereira and Pruitt 2004
 
+    temperature_used = (
+        effective_temperature(
+            temperature_hourly, day_length, correct_by_day_length=False
+        )
+        if use_effective_temperature
+        else temperature
+    )
+
     # Initialize array to store PET values for each day
-    pet_thorn = np.zeros_like(temperature)
+    pet_thorn = np.zeros_like(temperature_used)
     years = np.array([int(date[:4]) for date in time])
     unique_years = np.unique(years)
 
     # Iterate over each entry in time and calculate PET for each day
     for i, year in enumerate(years):
-        if temperature[i] <= 0:
+        if temperature_used[i] <= 0:
             pet_thorn[i] = 0
-        elif temperature[i] > 26:
+        elif temperature_used[i] > 26:
             # Eq. (5) in Pereira and Pruitt 2004
             # Remark: Thornthwaite and Mather 1957 seem to use 26.5 °C, but newer sources usually 26 C°
             pet_thorn[i] = correct_to_daily[i] * (
-                -415.85 + 32.24 * temperature[i] - 0.43 * temperature[i] ** 2
+                -415.85 + 32.24 * temperature_used[i] - 0.43 * temperature_used[i] ** 2
             )
             # Only for checking, Eq. (1) as below
             pet_check = (
                 correct_to_daily[i]
                 * 16
                 * np.power(
-                    10 * temperature[i] / heat_index_yearly[unique_years == year][0],
+                    10
+                    * temperature_used[i]
+                    / heat_index_yearly[unique_years == year][0],
                     exponent_a_yearly[unique_years == year][0],
                 )
             )
 
             print(
-                f"{time[i]}: Temperature {temperature[i]} > 26 °C, "
+                f"{time[i]}: Effective temperature {temperature_used[i]} > 26 °C, "
                 f"using PET from Eq. (4): {pet_thorn[i]:.2f}, "
                 f"PET from Eq. (1) would be: {pet_check:.2f}."
             )
@@ -404,7 +447,9 @@ def get_pet_thornthwaite(temperature, day_length, time):
                 correct_to_daily[i]
                 * 16
                 * np.power(
-                    10 * temperature[i] / heat_index_yearly[unique_years == year][0],
+                    10
+                    * temperature_used[i]
+                    / heat_index_yearly[unique_years == year][0],
                     exponent_a_yearly[unique_years == year][0],
                 )
             )
