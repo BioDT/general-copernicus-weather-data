@@ -53,7 +53,7 @@ def get_var_specs():
     - long_name: Long name of the variable.
     - short_name: Abbreviation of the variable.
     - data_set_hourly: Dataset name for hourly data.
-    - data_set_daily: Dataset name for daily data.
+    - data_set_daily: Dataset name for daily data (currently not available).
     - daily_stat: Statistic for downloading daily data (currently not available).
     - unit_conversion: Unit conversion from source to target data.
     - col_name_hourly: Column name for the variable in hourly data (source data units converted).
@@ -529,12 +529,11 @@ def weather_data_2_txt_file(
             24::24
         ].values
 
-        # PET replaced by calculation, Code for reading from CDS in commits before 2024-01
-
         # CO2 default value 400
         co2 = [400] * len(time)
 
-        # #### Remaining data needed for PET calculations
+        # Code for PET reading from CDS in commits before 2024-01
+        # Remaining data needed for PET calculations
         # SLHF (omit first entry from first Day at 00:00)
         slhf = df_collect[
             data_var_specs["surface_latent_heat_flux"]["col_name_hourly"]
@@ -554,13 +553,14 @@ def weather_data_2_txt_file(
         dewpoint_temperature_hourly = df_collect[
             data_var_specs["dewpoint_temperature"]["col_name_hourly"]
         ].values
-        dewpoint_temperature = cwd.daily_mean_00_24(dewpoint_temperature_hourly)
+        # dewpoint_temperature = cwd.daily_mean_00_24(dewpoint_temperature_hourly)
 
         # Surface pressure (get daily means with average of 00:00 and 24:00 as one of 24 values)
         surface_pressure = cwd.daily_mean_00_24(
             df_collect[data_var_specs["surface_pressure"]["col_name_hourly"]].values
         )
 
+        # PET from FAO-56 Penman-Monteith equation
         pet_fao = cwd.get_pet_fao(
             ssr,
             slhf,
@@ -571,6 +571,7 @@ def weather_data_2_txt_file(
             surface_pressure,
         )
 
+        # PET from Thornthwaite equation
         pet_thornthwaite = cwd.get_pet_thornthwaite(
             temperature,
             temperature_hourly,
@@ -580,6 +581,7 @@ def weather_data_2_txt_file(
         )
 
         # Overwrite hourly dataframe with daily values
+        # Include bot PET versions and SSRD, SSRD, SLHF for analysis
         df_collect = pd.DataFrame(
             {
                 "Date": time,

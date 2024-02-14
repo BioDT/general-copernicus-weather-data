@@ -160,6 +160,7 @@ def monthly_mean(values_daily, time):
     # Check if all days from a year are present in the data (as per total number)
     for year in unique_years:
         expected_days = 366 if ut.is_leap_year(year) else 365
+
         if np.sum(years == year) != expected_days:
             raise ValueError(
                 f"Length of daily data for the year {year} must be {expected_days}."
@@ -167,6 +168,7 @@ def monthly_mean(values_daily, time):
 
     # Calculate monthly means for each month of each year
     monthly_means = []
+
     for year in unique_years:
         for month in range(1, 13):
             values_this_month = values_daily[(years == year) & (months == month)]
@@ -265,7 +267,7 @@ def delta_svp(temperature):
 
 def gamma_from_atmospheric_pressure(pressure):
     """
-    Calculate psychrometric constant from atmospheric pressure.
+    Calculate psychrometric constant gamma from atmospheric pressure.
     Eq. (8) in Allen et al. 1998
 
     Args:
@@ -283,11 +285,11 @@ def heat_index(temperature_monthly):
     Eq. (2) in Pereira and Pruitt 2004
 
     Args:
-        temperature_monthly (numpy.ndarray): Array of monthly temperature values for each year.
+        temperature_monthly (numpy.ndarray): Monthly temperature values for each year (unit: degC).
             Shape should be (number of years, 12).
 
     Returns:
-        numpy.ndarray: Array of heat index values for each year.
+        numpy.ndarray: Heat index values for each year.
     """
     if temperature_monthly.shape[1] != 12:
         raise ValueError("Length of monthly temperatured data must be 12.")
@@ -298,13 +300,13 @@ def heat_index(temperature_monthly):
 def exponent_a(heat_index_yearly):
     """
     Calculate the exponent 'a' for the Thornthwaite PET formula based on yearly heat index values.
-    Eq. (2) in Pereira and Pruitt 2004
+    Eq. (3) in Pereira and Pruitt 2004
 
     Args:
-        heat_index_yearly (numpy.ndarray): Array of yearly heat index values.
+        heat_index_yearly (numpy.ndarray): Yearly heat index values.
 
     Returns:
-        numpy.ndarray: Array of exponent 'a' values.
+        numpy.ndarray: Exponent 'a' values for each year.
     """
     return (
         6.75e-7 * np.power(heat_index_yearly, 3)
@@ -400,7 +402,6 @@ def get_pet_thornthwaite(
     heat_index_yearly = heat_index(temperature_monthly)
     exponent_a_yearly = exponent_a(heat_index_yearly)
     correct_to_daily = day_length / 360  # Eq. (5) in Pereira and Pruitt 2004
-
     temperature_used = (
         effective_temperature(
             temperature_hourly, day_length, correct_by_day_length=False
@@ -424,7 +425,7 @@ def get_pet_thornthwaite(
             pet_thorn[i] = correct_to_daily[i] * (
                 -415.85 + 32.24 * temperature_used[i] - 0.43 * temperature_used[i] ** 2
             )
-            # Only for checking, Eq. (1) as below
+            # Only for checking and user info, Eq. (1) as below
             pet_check = (
                 correct_to_daily[i]
                 * 16
@@ -437,9 +438,10 @@ def get_pet_thornthwaite(
             )
 
             print(
-                f"{time[i]}: Effective temperature {temperature_used[i]} > 26 °C, "
-                f"using PET from Eq. (4): {pet_thorn[i]:.2f}, "
-                f"PET from Eq. (1) would be: {pet_check:.2f}."
+                f"PET (Thornthwaite), {time[i]}: "
+                f"temperature {temperature_used[i]:.2f} °C > 26 °C, "
+                f"using Eq. (4): {pet_thorn[i]:.2f} mm, "
+                f"Eq. (1) would give: {pet_check:.2f} mm."
             )
         else:
             # Eq. (1) in Pereira and Pruitt 2004
