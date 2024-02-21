@@ -55,7 +55,7 @@ def data_processing(
             months_list,
         )
 
-        # gwd.download_weather_data(data_set, data_requests, data_resolution)
+        gwd.download_weather_data(data_set, data_requests, data_resolution)
 
     gwd.weather_data_2_txt_file(
         data_sets,

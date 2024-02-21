@@ -199,10 +199,24 @@ def get_deims_coordinates(deims_id):
     Returns:
         dict: Coordinates as a dictionary with 'lat' and 'lon'.
     """
-    deims_gdf = deims.getSiteCoordinates(deims_id, filename=None)
-    # deims_gdf = deims.getSiteBoundaries(deims_id, filename=None)  # option: collect all coordinates from deims_gdf.boundary[0] ...
-    lon = deims_gdf.geometry[0].x
-    lat = deims_gdf.geometry[0].y
-    print(f"Coordinates for DEIMS.id '{deims_id}' found.")
-    print(f"Latitude: {lat}, Longitude: {lon}")
-    return {"lat": lat, "lon": lon}
+    try:
+        deims_gdf = deims.getSiteCoordinates(deims_id, filename=None)
+        # deims_gdf = deims.getSiteBoundaries(deims_id, filename=None)  # option: collect all coordinates from deims_gdf.boundary[0] ...
+
+        lon = deims_gdf.geometry[0].x
+        lat = deims_gdf.geometry[0].y
+        name = deims_gdf.name[0]
+        print(f"Coordinates for DEIMS.id '{deims_id}' found ({name}).")
+        print(f"Latitude: {lat}, Longitude: {lon}")
+
+        return {
+            "deims_id": deims_id,
+            "found": True,
+            "lat": lat,
+            "lon": lon,
+            "name": name,
+        }
+    except Exception as e:
+        print(f"Error: coordinates for DEIMS.id '{deims_id}' not found ({e})!")
+
+        return {"deims_id": deims_id, "found": False}

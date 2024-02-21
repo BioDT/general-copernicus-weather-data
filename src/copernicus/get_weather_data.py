@@ -1,7 +1,7 @@
 """
 Module Name: get_weather_data.py
 Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
-Date: November 8, 2023
+Date: November, 2023
 Description: Functions for downloading and processing selected weather data. 
 """
 
@@ -13,7 +13,6 @@ from netCDF4 import num2date
 import numpy as np
 import pandas as pd
 from pathlib import Path
-
 import statistics as stats
 
 
