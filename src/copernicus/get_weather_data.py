@@ -20,7 +20,7 @@ def construct_months_list(years, months):
     """
     Construct a list of year-month pairs.
 
-    Args:
+    Parameters:
         years (list of int): List of years.
         months (list of int): List of months (1 to 12).
 
@@ -155,7 +155,7 @@ def check_missing_entries(entry_name, data_var_specs):
     Check for missing 'entry_name' in variable specifications.
     Prints a warning for each variable without 'entry_name'.
 
-    Args:
+    Parameters:
         entry_name (str): Name of the entry to check for.
         data_var_specs (dict): Variable specifications dictionary.
     """
@@ -177,7 +177,7 @@ def construct_data_file_name(
     """
     Construct data file name.
 
-    Args:
+    Parameters:
         folder (str or Path): Folder where the data file will be stored.
         data_set (str): Name of the data set.
         data_resolution (str): Data resolution ('hourly', 'daily').
@@ -229,7 +229,7 @@ def construct_request(
     """
     Construct data request.
 
-    Args:
+    Parameters:
         data_format (str): Data format ('netcdf').
         data_resolution (str): Data resolution ('hourly').
         coordinates (dict): Coordinates dictionary with 'lat' and 'lon'.
@@ -272,7 +272,7 @@ def configure_data_request(
     """
     Configure data requests.
 
-    Args:
+    Parameters:
         data_set (str): Name of the data set.
         data_var_specs (dict): Dictionary of variable specifications.
         data_format (str): Data format ('netcdf').
@@ -333,7 +333,7 @@ def download_weather_data(data_set, data_requests, data_resolution):
     """
     Download weather data from CDS API.
 
-    Args:
+    Parameters:
         data_set (str): Name of the data set to download.
         data_requests (list): List of data requests and corresponding file names.
         data_resolution (str): Data resolution ('hourly').
@@ -367,7 +367,7 @@ def weather_data_2_txt_file(
     """
     Process and write weather data to .txt files.
 
-    Args:
+    Parameters:
         data_sets (list): List of data set names.
         data_var_specs (dict): Dictionary of variable specifications.
         data_format (str): Data format ('netcdf').

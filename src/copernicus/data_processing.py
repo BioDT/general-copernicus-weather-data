@@ -22,7 +22,7 @@ def data_processing(
     """
     Download data from CDS API. Convert to .txt files.
 
-    Args:
+    Parameters:
         data_sets (list of str): Names of Copernicus datasets.
         final_resolution (str): Resolution for final text file ("hourly" or "daily").
         years (list of int): Years list.

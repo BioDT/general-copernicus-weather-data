@@ -17,7 +17,7 @@ def is_dict_of_2_floats(variable):
     """
     Check if 'variable' is a dictionary of two float values.
 
-    Args:
+    Parameters:
         variable (dict): Input dictionary to check.
 
     Returns:
@@ -35,7 +35,7 @@ def is_leap_year(year):
     """
     Check if a given year is a leap year.
 
-    Args:
+    Parameters:
         year (int): The year.
 
     Returns:
@@ -50,7 +50,7 @@ def get_days_in_month(year, month):
     """
     Get the number of days in a month for a given year, considering leap years.
 
-    Args:
+    Parameters:
         year (int): The year.
         month (int): The month.
 
@@ -86,7 +86,7 @@ def generate_day_values(year, month):
     """
     Generate day value strings for a given year and month.
 
-    Args:
+    Parameters:
         year (int): The year.
         month (int): The month.
 
@@ -101,7 +101,7 @@ def format_offset(offset_seconds):
     """
     Format a time zone offset in hours and minutes.
 
-    Args:
+    Parameters:
         offset_seconds (int): Time zone offset in seconds.
 
     Returns:
@@ -119,7 +119,7 @@ def get_time_zone(coordinates):
     """
     Get the time zone for a given set of coordinates.
 
-    Args:
+    Parameters:
         coordinates (dict): Coordinates with 'lat' and 'lon'.
 
     Returns:
@@ -143,7 +143,7 @@ def get_day_length(coordinates, date_iterable):
     """
     Get day length in hours for a given location and list of dates.
 
-    Args:
+    Parameters:
         coordinates (dict): Coordinates with 'lat' and 'lon'.
         date_iterable (iterable): Iterable of date strings.
 
@@ -173,7 +173,7 @@ def get_data_suffix(data_format):
     """
     Determine data file ending based on data format.
 
-    Args:
+    Parameters:
         data_format (str): Data format ('netcdf' or 'grib').
 
     Returns:
@@ -193,7 +193,7 @@ def get_deims_coordinates(deims_id):
     """
     Get coordinates for a DEIMS.iD.
 
-    Args:
+    Parameters:
         deims_id (str): DEIMS.iD.
 
     Returns:
