@@ -57,7 +57,7 @@ def data_processing(
 
         gwd.download_weather_data(data_set, data_requests, data_resolution)
 
-    gwd.weather_data_2_txt_file(
+    gwd.weather_data_to_txt_file(
         data_sets,
         data_var_specs,
         data_format,

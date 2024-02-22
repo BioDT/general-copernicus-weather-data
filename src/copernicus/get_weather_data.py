@@ -202,23 +202,21 @@ def construct_data_file_name(
     formatted_year = str(year)
     formatted_month = str(month).zfill(2)
 
-    if ut.is_dict_of_2_floats(location) and set(location.keys()) == {
-        "lat",
-        "lon",
-    }:  # location as dictionary with lat, lon
-        formatted_lat = f"lat{location['lat']:.2f}".replace(".", "-")
-        formatted_lon = f"lon{location['lon']:.2f}".replace(".", "-")
-        file_name = (
-            folder
-            / f"{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
-        )
-    elif isinstance(location, str):  # location as string (DEIMS.iD)
-        file_name = (
-            folder
-            / f"{location}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
-        )
+    if ("lat" in location) and ("lon" in location):
+        formatted_lat = f"lat{location["lat"]:.2f}".replace(".", "-")
+        formatted_lon = f"lon{location["lon"]:.2f}".replace(".", "-")
+        file_start = f"{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}"
+    elif "deims_id" in location: # DEIMS.iD
+        file_start = location["deims_id"]
+    elif isinstance(location, str):  # location as string (e.g. DEIMS.iD)
+        file_start = location
     else:
         raise ValueError("Unsupported location format.")
+    
+    file_name = (
+        folder
+        / f"{file_start}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
+    )
 
     return file_name
 
@@ -354,7 +352,7 @@ def download_weather_data(data_set, data_requests, data_resolution):
 
 
 # TODO: split into several functions?
-def weather_data_2_txt_file(
+def weather_data_to_txt_file(
     data_sets,
     data_var_specs,
     data_format,
