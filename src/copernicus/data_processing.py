@@ -1,7 +1,7 @@
 """
 Module Name: data_processing.py
 Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
-Date: November 8, 2023
+Date: November, 2023
 Description: Building block for obtaining selected weather data at given location 
              (0.1° x 0.1° spatial resolution) for desired time periods, at hourly 
              resolution, e.g. from Copernicus ERA5-Land dataset. 
