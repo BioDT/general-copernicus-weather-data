@@ -493,7 +493,7 @@ def weather_data_to_txt_file(
     Path(file_name).parent.mkdir(parents=True, exist_ok=True)
 
     # Write file to directory
-    df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f")
+    df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan")
     print(f"Text file with {data_resolution} resolution prepared.")
 
     # ####
@@ -606,5 +606,5 @@ def weather_data_to_txt_file(
             f"{months_list[-2][0]:04d}-{months_list[-2][1]:02d}",
             ["Weather"],
         )
-        df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f")
+        df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan")
         print(f"Text file with {final_resolution} resolution prepared.")

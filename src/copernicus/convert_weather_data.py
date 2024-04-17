@@ -157,15 +157,6 @@ def monthly_mean(values_daily, time):
     months = np.array([int(date[5:7]) for date in time])
     unique_years = np.unique(years)
 
-    # Check if all days from a year are present in the data (as per total number)
-    for year in unique_years:
-        expected_days = 366 if ut.is_leap_year(year) else 365
-
-        if np.sum(years == year) != expected_days:
-            raise ValueError(
-                f"Length of daily data for the year {year} must be {expected_days}."
-            )
-
     # Calculate monthly means for each month of each year
     monthly_means = []
 
@@ -398,6 +389,30 @@ def get_pet_thornthwaite(
     Returns:
         numpy.ndarray: Potential Evapotranspiration (PET) values (unit: mm).
     """
+    # Initialize array to store PET values for each day
+    pet_thorn = np.full_like(day_length, np.nan)
+
+    # Extract year from time strings
+    years = np.array([int(date[:4]) for date in time])
+    unique_years = np.unique(years)
+
+    # Check if all days from a year are present in the data (as per total number), otherwise return 'nan'
+    for year in unique_years:
+        days_found = np.sum(years == year)
+        days_expected = 366 if ut.is_leap_year(year) else 365
+
+        if days_found != days_expected:
+            print(
+                f"Warning: Length of daily data for {year} ({days_found}) differs "
+                f"from days in that year ({days_expected})."
+            )
+            print(
+                "PET by Thornthwaite equation not calculated as it requires data for full years!"
+            )
+
+            return pet_thorn
+
+    # Prepare variables for PET calculation
     temperature_monthly = monthly_mean(temperature, time)
     heat_index_yearly = heat_index(temperature_monthly)
     exponent_a_yearly = exponent_a(heat_index_yearly)
@@ -409,11 +424,6 @@ def get_pet_thornthwaite(
         if use_effective_temperature
         else temperature
     )
-
-    # Initialize array to store PET values for each day
-    pet_thorn = np.zeros_like(temperature_used)
-    years = np.array([int(date[:4]) for date in time])
-    unique_years = np.unique(years)
 
     # Iterate over each entry in time and calculate PET for each day
     for i, year in enumerate(years):
