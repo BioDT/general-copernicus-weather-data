@@ -192,8 +192,8 @@ def effective_temperature(temperature_hourly, day_length, correct_by_day_length=
         t_eff = np.maximum(t_eff, (t_max + t_min) / 2)
         t_eff = np.minimum(t_eff, t_max)
     else:
-        # no day length correction, Eq. (6) in Pereira and Pruitt 2004, k = 0.72
-        t_eff = 0.72 / 2 * (3 * t_max - t_min)
+        # no day length correction, Eq. (6) in Pereira and Pruitt 2004, k = 0.69 (not 0.72)
+        t_eff = 0.69 / 2 * (3 * t_max - t_min)
 
     return t_eff
 
@@ -214,7 +214,7 @@ def wind_speed_from_u_v(u_component, v_component):
 
 def wind_speed_height_change(wind_speed, height1=10, height2=2, z0=0.03):
     """
-    Calculate wind speed change due to height difference.
+    Calculate wind speed change due to height difference using log wind profile.
 
     Parameters:
         wind_speed (float or numpy.ndarray): Wind speed at height1 (unit: m/s).
@@ -225,6 +225,8 @@ def wind_speed_height_change(wind_speed, height1=10, height2=2, z0=0.03):
     Returns:
         numpy.ndarray: Wind speed at height2 (unit: m/s).
     """
+    # Remark: roughness length = 0.03 used, as most established for grass and similar,
+    #         Eq. (47) in Allen et al. 1998 uses slightly lower value (~0.017)
     return wind_speed * np.log(height2 / z0) / np.log(height1 / z0)
 
 
@@ -283,7 +285,7 @@ def heat_index(temperature_monthly):
         numpy.ndarray: Heat index values for each year.
     """
     if temperature_monthly.shape[1] != 12:
-        raise ValueError("Length of monthly temperatured data must be 12.")
+        raise ValueError("Length of monthly temperature data must be 12.")
 
     return np.sum(np.power(np.maximum(0, 0.2 * temperature_monthly), 1.514), axis=1)
 
@@ -429,14 +431,9 @@ def get_pet_thornthwaite(
     for i, year in enumerate(years):
         if temperature_used[i] <= 0:
             pet_thorn[i] = 0
-        elif temperature_used[i] > 26:
-            # Eq. (5) in Pereira and Pruitt 2004
-            # Remark: Thornthwaite and Mather 1957 seem to use 26.5 °C, but newer sources usually 26 C°
-            pet_thorn[i] = correct_to_daily[i] * (
-                -415.85 + 32.24 * temperature_used[i] - 0.43 * temperature_used[i] ** 2
-            )
-            # Only for checking and user info, Eq. (1) as below
-            pet_check = (
+        else:
+            # Eq. (1) in Pereira and Pruitt 2004
+            pet_eq1 = (
                 correct_to_daily[i]
                 * 16
                 * np.power(
@@ -447,23 +444,22 @@ def get_pet_thornthwaite(
                 )
             )
 
-            print(
-                f"PET (Thornthwaite), {time[i]}: "
-                f"temperature {temperature_used[i]:.2f} °C > 26 °C, "
-                f"using Eq. (4): {pet_thorn[i]:.2f} mm, "
-                f"Eq. (1) would give: {pet_check:.2f} mm."
-            )
-        else:
-            # Eq. (1) in Pereira and Pruitt 2004
-            pet_thorn[i] = (
-                correct_to_daily[i]
-                * 16
-                * np.power(
-                    10
-                    * temperature_used[i]
-                    / heat_index_yearly[unique_years == year][0],
-                    exponent_a_yearly[unique_years == year][0],
+            if temperature_used[i] > 26:
+                # Eq. (4) in Pereira and Pruitt 2004
+                # Remark: Thornthwaite and Mather 1957 seem to use 26.5 °C, but newer sources usually 26 C°
+                pet_thorn[i] = correct_to_daily[i] * (
+                    -415.85
+                    + 32.24 * temperature_used[i]
+                    - 0.43 * temperature_used[i] ** 2
                 )
-            )
+                print(
+                    f"PET (Thornthwaite), {time[i]}: "
+                    f"temperature {temperature_used[i]:.2f} °C > 26 °C, "
+                    f"using Eq. (4): {pet_thorn[i]:.2f} mm, "
+                    f"Eq. (1) would give: {pet_eq1:.2f} mm."
+                )
+            else:
+                # Use value from Eq. (1) in Pereira and Pruitt 2004
+                pet_thorn[i] = pet_eq1
 
     return pet_thorn
