@@ -20,12 +20,12 @@ def convert_units(values, unit_conversion):
     Parameters:
         values (float or numpy.ndarray): Input values to be converted.
         unit_conversion (str): Unit conversion specifier. Options include:
-            - '_to_Milli': Convert to milli-units.
-            - '_to_Kilo': Convert to kilo-units.
-            - '_to_Mega': Convert to mega-units.
-            - 'Kelvin_to_Celsius': Convert from Kelvin to Celsius.
-            - 'Celsius_to_Kelvin': Convert from Celsius to Kelvin.
-            - 'd-1_to_s-1': Convert from per day to per second.
+            '_to_Milli': Convert to milli-units.
+            '_to_Kilo': Convert to kilo-units.
+            '_to_Mega': Convert to mega-units.
+            'Kelvin_to_Celsius': Convert from Kelvin to Celsius.
+            'Celsius_to_Kelvin': Convert from Celsius to Kelvin.
+            'd-1_to_s-1': Convert from per day to per second.
 
     Returns:
         float or numpy.ndarray: Converted values.

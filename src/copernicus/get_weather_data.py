@@ -49,14 +49,14 @@ def get_var_specs():
 
     Create a dictionary that provides specifications for potential download variables.
     Each variable is identified by its name and includes the following information:
-    - long_name: Long name of the variable.
-    - short_name: Abbreviation of the variable.
-    - data_set_hourly: Dataset name for hourly data.
-    - data_set_daily: Dataset name for daily data (currently not available).
-    - daily_stat: Statistic for downloading daily data (currently not available).
-    - unit_conversion: Unit conversion from source to target data.
-    - col_name_hourly: Column name for the variable in hourly data (source data units converted).
-    - col_name_daily: Column name for the variable in daily data (source data units converted).
+        long_name: Long name of the variable.
+        short_name: Abbreviation of the variable.
+        data_set_hourly: Dataset name for hourly data.
+        data_set_daily: Dataset name for daily data (currently not available).
+        daily_stat: Statistic for downloading daily data (currently not available).
+        unit_conversion: Unit conversion from source to target data.
+        col_name_hourly: Column name for the variable in hourly data (source data units converted).
+        col_name_daily: Column name for the variable in daily data (source data units converted).
 
     Returns:
         dict: A dictionary of variable specifications, where each key is a variable name,
@@ -164,7 +164,7 @@ def check_missing_entries(entry_name, data_var_specs):
             print(f"Warning: '{entry_name}' entry missing for key '{key}'")
 
 
-def construct_data_file_name(
+def construct_weather_data_file_name(
     folder,
     data_set,
     data_resolution,
@@ -306,7 +306,7 @@ def configure_data_request(
                 long_names,  # Requested variables
             )
 
-            file_name = construct_data_file_name(
+            file_name = construct_weather_data_file_name(
                 "weatherDataRaw",
                 data_set,
                 data_resolution,
@@ -420,7 +420,7 @@ def weather_data_to_txt_file(
         df_temp = None
 
         for data_set, var_short in data_read_out:
-            file_name = construct_data_file_name(
+            file_name = construct_weather_data_file_name(
                 "weatherDataRaw",
                 data_set,
                 data_resolution,
@@ -478,7 +478,7 @@ def weather_data_to_txt_file(
         )
 
     # Save DataFrame to .txt file
-    file_name = construct_data_file_name(
+    file_name = construct_weather_data_file_name(
         "weatherDataPrepared",
         data_set,
         data_resolution,
@@ -596,7 +596,7 @@ def weather_data_to_txt_file(
         )
 
         # Save DataFrame to .txt file, FileName with DEIMS.iD if existing
-        file_name = construct_data_file_name(
+        file_name = construct_weather_data_file_name(
             "weatherDataPrepared",
             data_set,
             final_resolution,
