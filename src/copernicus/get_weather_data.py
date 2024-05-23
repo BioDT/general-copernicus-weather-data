@@ -203,16 +203,16 @@ def construct_weather_data_file_name(
     formatted_month = str(month).zfill(2)
 
     if ("lat" in location) and ("lon" in location):
-        formatted_lat = f"lat{location["lat"]:.2f}".replace(".", "-")
-        formatted_lon = f"lon{location["lon"]:.2f}".replace(".", "-")
+        formatted_lat = f"lat{location['lat']:.6f}".replace(".", "-")
+        formatted_lon = f"lon{location['lon']:.6f}".replace(".", "-")
         file_start = f"{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}"
-    elif "deims_id" in location: # DEIMS.iD
+    elif "deims_id" in location:  # DEIMS.iD
         file_start = location["deims_id"]
     elif isinstance(location, str):  # location as string (e.g. DEIMS.iD)
         file_start = location
     else:
         raise ValueError("Unsupported location format.")
-    
+
     file_name = (
         folder
         / f"{file_start}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
@@ -344,6 +344,8 @@ def download_weather_data(data_set, data_requests, data_resolution):
             Path(file_name).parent.mkdir(parents=True, exist_ok=True)
             # Retrieve data
             c.retrieve(data_set, request, file_name)
+
+    # asynchronous https://docs.python.org/3/library/asyncio.html
 
     # # Option for daily requests not fully developed!
     # # Fragments in commits before 2023-11-08
@@ -493,7 +495,9 @@ def weather_data_to_txt_file(
     Path(file_name).parent.mkdir(parents=True, exist_ok=True)
 
     # Write file to directory
-    df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan")
+    df_collect.to_csv(
+        file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"
+    )
     print(f"Text file with {data_resolution} resolution prepared.")
 
     # ####
@@ -606,5 +610,7 @@ def weather_data_to_txt_file(
             f"{months_list[-2][0]:04d}-{months_list[-2][1]:02d}",
             ["Weather"],
         )
-        df_collect.to_csv(file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan")
+        df_collect.to_csv(
+            file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"
+        )
         print(f"Text file with {final_resolution} resolution prepared.")
