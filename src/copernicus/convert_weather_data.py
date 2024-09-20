@@ -1,16 +1,27 @@
 """
 Module Name: convert_weather_data.py
-Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
-Date: February, 2024
-Description: Functions for conversions and subsequent calculations from Copernicus weather data. 
+Description: Functions for conversions and subsequent calculations from Copernicus weather data.
              Includes PET calculation based on FAO recommendation (Allen et al. 1998 FAO Irrigation and drainage paper 56)
              and Thornthwaite equation (e.g. Pereira and Pruitt 2004 Agricultural Water Management, https://doi.org/10.1016/j.agwat.2003.11.003)
-             Cf. https://pyeto.readthedocs.io, but pyeto package is not on PyPI
+             Cf. https://pyeto.readthedocs.io, but pyeto package is not on PyPI.
+
+Copyright (C) 2024
+- Thomas Banitz, Franziska Taubert, Helmholtz Centre for Environmental Research GmbH - UFZ, Leipzig, Germany
+- Tuomas Rossi, CSC – IT Center for Science Ltd., Espoo, Finland
+
+Licensed under the EUPL, Version 1.2 or - as soon they will be approved
+by the European Commission - subsequent versions of the EUPL (the "Licence").
+You may not use this work except in compliance with the Licence.
+
+You may obtain a copy of the Licence at:
+https://joinup.ec.europa.eu/software/page/eupl
 """
 
-from copernicus import utils as ut
-import numpy as np
 import statistics as stats
+
+import numpy as np
+
+from copernicus import utils as ut
 
 
 def convert_units(values, unit_conversion):
@@ -139,6 +150,14 @@ def daily_max_00_24(values_hourly):
     ]
 
     return np.array(maxs)
+
+
+# TODO: mean temperature from sunrise to sunset
+# def daily_mean_daylight(values_hourly, time, location):
+# # weighted mean of temp values between sunset and sunrise time,
+# # first and last multiplied with the share of a full hour for which the sun is up
+# # e.g.: sunrise 05:45, value from 06:00 goes in with factor 0.75 (05:45-06:30)
+# #       sunrise 06:15, value from 06:00 goes in with factor 0.25 (06:15-06:30)
 
 
 def monthly_mean(values_daily, time):

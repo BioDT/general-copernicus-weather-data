@@ -1,10 +1,19 @@
 """
 Module Name: data_processing.py
-Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
-Date: November, 2023
-Description: Building block for obtaining selected weather data at given location 
-             (0.1° x 0.1° spatial resolution) for desired time periods, at hourly 
-             resolution, e.g. from Copernicus ERA5-Land dataset. 
+Description: Building block for obtaining selected weather data at given location
+             (0.1° x 0.1° spatial resolution) for desired time periods, at hourly
+             resolution, e.g. from Copernicus ERA5-Land dataset.
+
+Copyright (C) 2024
+- Thomas Banitz, Franziska Taubert, Helmholtz Centre for Environmental Research GmbH - UFZ, Leipzig, Germany
+- Tuomas Rossi, CSC – IT Center for Science Ltd., Espoo, Finland
+
+Licensed under the EUPL, Version 1.2 or - as soon they will be approved
+by the European Commission - subsequent versions of the EUPL (the "Licence").
+You may not use this work except in compliance with the Licence.
+
+You may obtain a copy of the Licence at:
+https://joinup.ec.europa.eu/software/page/eupl
 """
 
 from copernicus import get_weather_data as gwd

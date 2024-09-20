@@ -1,11 +1,21 @@
 """
 Module Name: utils.py
-Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
-Date: November 8, 2023
-Description: Utility functions for copernicus building block. 
+Description: Utility functions for copernicus building block.
+
+Copyright (C) 2024
+- Thomas Banitz, Franziska Taubert, Helmholtz Centre for Environmental Research GmbH - UFZ, Leipzig, Germany
+- Tuomas Rossi, CSC – IT Center for Science Ltd., Espoo, Finland
+
+Licensed under the EUPL, Version 1.2 or - as soon they will be approved
+by the European Commission - subsequent versions of the EUPL (the "Licence").
+You may not use this work except in compliance with the Licence.
+
+You may obtain a copy of the Licence at:
+https://joinup.ec.europa.eu/software/page/eupl
 """
 
 import datetime
+
 import deims
 import numpy as np
 import pytz
@@ -136,6 +146,7 @@ def get_time_zone(coordinates):
         offset_str = format_offset(offset.seconds)
 
         return offset_str
+
     raise ValueError("Time zone not found.")
 
 
@@ -210,10 +221,10 @@ def get_deims_coordinates(deims_id):
         print(f"Latitude: {lat}, Longitude: {lon}")
 
         return {
-            "deims_id": deims_id,
-            "found": True,
             "lat": lat,
             "lon": lon,
+            "deims_id": deims_id,
+            "found": True,
             "name": name,
         }
     except Exception as e:

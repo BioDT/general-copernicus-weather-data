@@ -1,15 +1,14 @@
 from setuptools import setup
-from pathlib import Path
 
 # Project metadata
 name = "copernicus"
 version = "0.1.0"
-author = "Thomas Banitz, Franziska Taubert, BioDT"
+author = "Thomas Banitz, Franziska Taubert, Tuomas Rossi, BioDT"
 description = (
-    "Retrieve weather data from Copernicus and prepare as GRASSMIND input files"
+    "Retrieve weather data from Copernicus and prepare as grassland model input files"
 )
 url = "https://github.com/BioDT/general-copernicus-weather-data"
-license = "MIT"
+license = "EUPL v1.2"
 
 # Specify project dependencies from a requirements.txt file
 with open("requirements.txt", "r") as req_file:
@@ -23,7 +22,6 @@ setup(
     description=description,
     url=url,
     license=license,
-    entry_points={'console_scripts':
-        ['copernicus_data_processing = copernicus.data_processing:main']},
+    python_requires=">=3.10",
     install_requires=install_requires,
 )

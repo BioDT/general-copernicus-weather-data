@@ -1,19 +1,29 @@
 """
 Module Name: get_weather_data.py
-Author: Thomas Banitz, Tuomas Rossi, Franziska Taubert, BioDT
-Date: November, 2023
-Description: Functions for downloading and processing selected weather data. 
+Description: Functions for downloading and processing selected weather data.
+
+Copyright (C) 2024
+- Thomas Banitz, Franziska Taubert, Helmholtz Centre for Environmental Research GmbH - UFZ, Leipzig, Germany
+- Tuomas Rossi, CSC – IT Center for Science Ltd., Espoo, Finland
+
+Licensed under the EUPL, Version 1.2 or - as soon they will be approved
+by the European Commission - subsequent versions of the EUPL (the "Licence").
+You may not use this work except in compliance with the Licence.
+
+You may obtain a copy of the Licence at:
+https://joinup.ec.europa.eu/software/page/eupl
 """
 
+from pathlib import Path
+
 import cdsapi
-from copernicus import convert_weather_data as cwd
-from copernicus import utils as ut
 import netCDF4
-from netCDF4 import num2date
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import statistics as stats
+from netCDF4 import num2date
+
+from copernicus import convert_weather_data as cwd
+from copernicus import utils as ut
 
 
 def construct_months_list(years, months):
@@ -107,7 +117,7 @@ def get_var_specs():
             "daily_stat": "daily_sum",
             "unit_conversion": 0,
             "col_name_hourly": "SLHF[Jm-2] (acc.)",
-            "col_name_daily": "SLHF[J/m2]",
+            "col_name_daily": "SLHF[Jm-2]",
         },
         "eastward_wind": {
             "long_name": "10m_u_component_of_wind",
@@ -241,7 +251,7 @@ def construct_request(
     if data_resolution == "hourly":
         request = {
             "variable": variables,
-            "product_type": "reanalysis",
+            "product_type": "reanalysis",  # ['reanalysis']
             "grid": "0.1/0.1",
             "area": [  # Works with exact location as lower and upper bounds of area
                 coordinates["lat"],
@@ -249,12 +259,13 @@ def construct_request(
                 coordinates["lat"],
                 coordinates["lon"],
             ],
-            "format": data_format,
+            "data_format": data_format,  # 'data_format': data_format
             "day": ut.generate_day_values(year, month),
             "year": str(year),
             "month": str(month),
             "time": [f"{i:02}:00" for i in range(24)],
-        }
+            "download_format": "unarchived",
+        }  # 'download_format': 'unarchived'
 
     # # Option for daily requests not fully developed!
     # # Fragments in commits before 2023-11-08
@@ -284,13 +295,13 @@ def configure_data_request(
     data_requests = []
     data_suffix = ut.get_data_suffix(data_format)
 
-    data_setVarName = "data_set_" + data_resolution
-    check_missing_entries(data_setVarName, data_var_specs)
+    data_set_var_name = "data_set_" + data_resolution
+    check_missing_entries(data_set_var_name, data_var_specs)
 
     var_names = [
         key
         for key, entries in data_var_specs.items()
-        if entries[data_setVarName] == data_set
+        if entries[data_set_var_name] == data_set
     ]
     long_names = [data_var_specs[key]["long_name"] for key in var_names]
     short_names = [data_var_specs[key]["short_name"] for key in var_names]
@@ -336,14 +347,14 @@ def download_weather_data(data_set, data_requests, data_resolution):
         data_requests (list): List of data requests and corresponding file names.
         data_resolution (str): Data resolution ('hourly').
     """
-    c = cdsapi.Client()
+    client = cdsapi.Client()
 
     if data_resolution == "hourly":
         for request, file_name in data_requests:
             # Create data directory if missing
             Path(file_name).parent.mkdir(parents=True, exist_ok=True)
             # Retrieve data
-            c.retrieve(data_set, request, file_name)
+            client.retrieve(data_set, request, file_name)
 
     # asynchronous https://docs.python.org/3/library/asyncio.html
 
@@ -390,8 +401,8 @@ def weather_data_to_txt_file(
     if data_resolution == "hourly":
         # Create list of data that need to be read, as they may sit in multiple files for the same month
         data_read_out = []
-        data_setVarName = "data_set_" + data_resolution
-        check_missing_entries(data_setVarName, data_var_specs)
+        data_set_var_name = "data_set_" + data_resolution
+        check_missing_entries(data_set_var_name, data_var_specs)
         check_missing_entries("short_name", data_var_specs)
 
         for data_set in data_sets:
@@ -399,7 +410,7 @@ def weather_data_to_txt_file(
             var_names = [
                 key
                 for key, entries in data_var_specs.items()
-                if entries[data_setVarName] == data_set
+                if entries[data_set_var_name] == data_set
             ]
 
             if len(var_names) > 1:
@@ -435,7 +446,8 @@ def weather_data_to_txt_file(
 
             # Open netCDF4 file and extract variables
             ds = netCDF4.Dataset(file_name)
-            time = ds.variables["time"]
+            # time = ds.variables["time"]
+            time = ds.variables["valid_time"]
             time = num2date(time[:], time.units)
 
             if data_resolution == "hourly":
@@ -501,7 +513,7 @@ def weather_data_to_txt_file(
     print(f"Text file with {data_resolution} resolution prepared.")
 
     # ####
-    # Convert hourly to daily data if needed (e.g. for Grassmind)
+    # Convert hourly to daily data if needed (e.g. for grassland model)
     if data_resolution == "hourly" and final_resolution == "daily":
         # Dates (omit last entry from last Day + 1 at 00:00)
         time = df_collect["time"][:-24:24].str.split("T").str[0].values
@@ -582,7 +594,7 @@ def weather_data_to_txt_file(
         )
 
         # Overwrite hourly dataframe with daily values
-        # Include bot PET versions and SSRD, SSRD, SLHF for analysis
+        # Include both PET versions and SSRD, SSRD, SLHF for analysis
         df_collect = pd.DataFrame(
             {
                 "Date": time,
