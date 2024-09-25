@@ -55,21 +55,20 @@ def construct_months_list(years, months):
 
 def get_var_specs():
     """
-    Retrieve a dictionary of variable specifications.
+    Retrieve dictionary of variable specifications.
 
-    Create a dictionary that provides specifications for potential download variables.
+    Create dictionary that provides specifications for potential download variables.
     Each variable is identified by its name and includes the following information:
         long_name: Long name of the variable.
         short_name: Abbreviation of the variable.
         data_set_hourly: Dataset name for hourly data.
-        data_set_daily: Dataset name for daily data (currently not available).
-        daily_stat: Statistic for downloading daily data (currently not available).
         unit_conversion: Unit conversion from source to target data.
         col_name_hourly: Column name for the variable in hourly data (source data units converted).
         col_name_daily: Column name for the variable in daily data (source data units converted).
+        daily_stat: Statistic for downloading daily data (option currently not available).
 
     Returns:
-        dict: A dictionary of variable specifications, where each key is a variable name,
+        dict: Dictionary of variable specifications, where each key is a variable name,
               and each value is a dictionary of specifications.
 
     """
@@ -78,82 +77,82 @@ def get_var_specs():
             "long_name": "total_precipitation",
             "short_name": "tp",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_maximum",
             "unit_conversion": "_to_Milli",
             "col_name_hourly": "Precipitation[mm] (acc.)",
             "col_name_daily": "Precipitation[mm]",
+            "daily_stat": "daily_maximum",
         },
         "temperature": {
             "long_name": "2m_temperature",
             "short_name": "t2m",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_mean",
             "unit_conversion": "Kelvin_to_Celsius",
             "col_name_hourly": "Temperature[degC]",
             "col_name_daily": "Temperature[degC]",
+            "daily_stat": "daily_mean",
         },
         "solar_radiation_down": {
             "long_name": "surface_solar_radiation_downwards",
             "short_name": "ssrd",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_maximum",
             "unit_conversion": 0,
             "col_name_hourly": "SSRD[Jm-2] (acc.)",
             "col_name_daily": "PPFD_down[µmolm-2s-1]",  # as converted to PAR
+            "daily_stat": "daily_maximum",
         },
         "solar_radiation_net": {
             "long_name": "surface_net_solar_radiation",
             "short_name": "ssr",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_maximum",
             "unit_conversion": 0,
             "col_name_hourly": "SSR[Jm-2] (acc.)",
             "col_name_daily": "SSR[Jm-2]",
+            "daily_stat": "daily_maximum",
         },
         "surface_latent_heat_flux": {
             "long_name": "surface_latent_heat_flux",
             "short_name": "slhf",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_sum",
             "unit_conversion": 0,
             "col_name_hourly": "SLHF[Jm-2] (acc.)",
             "col_name_daily": "SLHF[Jm-2]",
+            "daily_stat": "daily_sum",
         },
         "eastward_wind": {
             "long_name": "10m_u_component_of_wind",
             "short_name": "u10",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_mean",
             "unit_conversion": 0,
             "col_name_hourly": "U10[ms-1]",
             "col_name_daily": "",
+            "daily_stat": "daily_mean",
         },
         "northward_wind": {
             "long_name": "10m_v_component_of_wind",
             "short_name": "v10",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_mean",
             "unit_conversion": 0,
             "col_name_hourly": "V10[ms-1]",
             "col_name_daily": "",
+            "daily_stat": "daily_mean",
         },
         "dewpoint_temperature": {
             "long_name": "2m_dewpoint_temperature",
             "short_name": "d2m",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_mean",
             "unit_conversion": "Kelvin_to_Celsius",
             "col_name_hourly": "DewpointTemperature[degC]",
             "col_name_daily": "",
+            "daily_stat": "daily_mean",
         },
         "surface_pressure": {
             "long_name": "surface_pressure",
             "short_name": "sp",
             "data_set_hourly": "reanalysis-era5-land",
-            "daily_stat": "daily_mean",
             "unit_conversion": "_to_Kilo",
             "col_name_hourly": "SurfacePressure[kPa]",
             "col_name_daily": "",
+            "daily_stat": "daily_mean",
         },
     }
 
@@ -171,7 +170,7 @@ def check_missing_entries(entry_name, data_var_specs):
     """
     for key, entries in data_var_specs.items():
         if entry_name not in entries:
-            print(f"Warning: '{entry_name}' entry missing for key '{key}'")
+            print(f"Warning: '{entry_name}' entry missing for key '{key}'!")
 
 
 def construct_weather_data_file_name(
@@ -179,7 +178,7 @@ def construct_weather_data_file_name(
     data_set,
     data_resolution,
     data_suffix,
-    location,
+    coordinates,
     year,
     month,
     var_short,
@@ -192,7 +191,7 @@ def construct_weather_data_file_name(
         data_set (str): Name of the data set.
         data_resolution (str): Data resolution ('hourly', 'daily').
         data_suffix (str): File suffix ('.nc').
-        location (str or dict): Location information ('DEIMS.iD' or {'lat': float, 'lon': float}).
+        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
         year (int): Year for the data file.
         month (int): Month for the data file.
         var_short (str or list of str): Variable short name(s).
@@ -212,16 +211,14 @@ def construct_weather_data_file_name(
     formatted_year = str(year)
     formatted_month = str(month).zfill(2)
 
-    if ("lat" in location) and ("lon" in location):
-        formatted_lat = f"lat{location['lat']:.6f}".replace(".", "-")
-        formatted_lon = f"lon{location['lon']:.6f}".replace(".", "-")
+    if "lat" in coordinates and "lon" in coordinates:
+        formatted_lat = f"lat{coordinates['lat']:.6f}".replace(".", "-")
+        formatted_lon = f"lon{coordinates['lon']:.6f}".replace(".", "-")
         file_start = f"{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}"
-    elif "deims_id" in location:  # DEIMS.iD
-        file_start = location["deims_id"]
-    elif isinstance(location, str):  # location as string (e.g. DEIMS.iD)
-        file_start = location
     else:
-        raise ValueError("Unsupported location format.")
+        raise ValueError(
+            "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
+        )
 
     file_name = (
         folder
@@ -248,6 +245,8 @@ def construct_request(
     Returns:
         dict: Dictionary representing the data request parameters.
     """
+    # Fragments for daily requests in commits before 2023-11-08.
+
     if data_resolution == "hourly":
         request = {
             "variable": variables,
@@ -266,9 +265,6 @@ def construct_request(
             "time": [f"{i:02}:00" for i in range(24)],
             "download_format": "unarchived",
         }  # 'download_format': 'unarchived'
-
-    # # Option for daily requests not fully developed!
-    # # Fragments in commits before 2023-11-08
     else:
         raise ValueError("Unsupported data resolution.")
 
@@ -292,6 +288,8 @@ def configure_data_request(
     Returns:
         list: List of data requests and corresponding file names.
     """
+    # Fragments for daily requests in commits before 2023-11-08.
+
     data_requests = []
     data_suffix = ut.get_data_suffix(data_format)
 
@@ -329,9 +327,6 @@ def configure_data_request(
             )
 
             data_requests.append((request, file_name))
-
-    # # Option for daily requests not fully developed!
-    # # Fragments in commits before 2023-11-08
     else:
         raise ValueError("Unsupported data resolution.")
 
@@ -347,31 +342,26 @@ def download_weather_data(data_set, data_requests, data_resolution):
         data_requests (list): List of data requests and corresponding file names.
         data_resolution (str): Data resolution ('hourly').
     """
+    # Fragments for daily requests in commits before 2023-11-08.
+    # Asynchronous option? https://docs.python.org/3/library/asyncio.html
+
     client = cdsapi.Client()
 
     if data_resolution == "hourly":
         for request, file_name in data_requests:
-            # Create data directory if missing
             Path(file_name).parent.mkdir(parents=True, exist_ok=True)
-            # Retrieve data
             client.retrieve(data_set, request, file_name)
-
-    # asynchronous https://docs.python.org/3/library/asyncio.html
-
-    # # Option for daily requests not fully developed!
-    # # Fragments in commits before 2023-11-08
     else:
         raise ValueError("Unsupported data resolution.")
 
 
 # TODO: split into several functions?
 def weather_data_to_txt_file(
-    data_sets,
+    data_set,
     data_var_specs,
     data_format,
     data_resolution,
     final_resolution,
-    deims_id,
     coordinates,
     months_list,
 ):
@@ -384,10 +374,13 @@ def weather_data_to_txt_file(
         data_format (str): Data format ('netcdf').
         data_resolution (str): Data resolution ('hourly').
         final_resolution (str): Final data resolution ('hourly' or 'daily').
-        deims_id (str): DEIMS.iD if available, or None.
-        coordinates (dict): Coordinates dictionary with 'lat' and 'lon'.
+        coordinates (dict): Coordinates dictionary with 'lat' and 'lon' keys.
         months_list (list): List of (year, month) pairs.
     """
+    # Fragments for daily requests in commits before 2023-11-08.
+    # Code for requests from dataset "reanalysis-era5-single-levels" in commits before 2024-01.
+    # Code for PET reading from CDS in commits before 2024-01.
+
     data_suffix = ut.get_data_suffix(data_format)
     check_missing_entries("col_name_hourly", data_var_specs)
     col_names = [
@@ -395,7 +388,6 @@ def weather_data_to_txt_file(
         for entries in data_var_specs.values()
         if "col_name_hourly" in entries
     ]
-
     df_collect = pd.DataFrame(columns=["time"] + col_names)
 
     if data_resolution == "hourly":
@@ -405,27 +397,22 @@ def weather_data_to_txt_file(
         check_missing_entries(data_set_var_name, data_var_specs)
         check_missing_entries("short_name", data_var_specs)
 
-        for data_set in data_sets:
-            # can be simplified when only ERA5-Land dataset is used
-            var_names = [
-                key
-                for key, entries in data_var_specs.items()
-                if entries[data_set_var_name] == data_set
-            ]
+        var_names = [
+            key
+            for key, entries in data_var_specs.items()
+            if entries[data_set_var_name] == data_set
+        ]
 
-            if len(var_names) > 1:
-                var_short = ["multVars"]
-            elif len(var_names) == 1:
-                var_short = [data_var_specs[var_names[0]]["short_name"]]
-            else:
-                print(
-                    f"Warning: No entries found that use the '{data_set}' data set for {data_resolution} resolution."
-                )
+        if len(var_names) > 1:
+            var_short = ["multVars"]
+        elif len(var_names) == 1:
+            var_short = [data_var_specs[var_names[0]]["short_name"]]
+        else:
+            print(
+                f"Warning: No entries found that use the '{data_set}' data set for {data_resolution} resolution."
+            )
 
-            data_read_out.append((data_set, var_short))
-
-    # # Option for daily requests not fully developed!
-    # # Fragments in commits before 2023-11-08
+        data_read_out.append((data_set, var_short))
     else:
         raise ValueError("Unsupported data resolution.")
 
@@ -464,11 +451,6 @@ def weather_data_to_txt_file(
                     )
                     df_temp[data_var_specs[var_name]["col_name_hourly"]] = data_temp
 
-                # Option for requests from dataset "reanalysis-era5-single-levels" removed
-                # Code in commits before 2024-01
-
-            # # Option for daily requests not fully developed!
-            # # Fragments in commits before 2023-11-08
             else:
                 raise ValueError("Unsupported data resolution.")
 
@@ -512,7 +494,6 @@ def weather_data_to_txt_file(
     )
     print(f"Text file with {data_resolution} resolution prepared.")
 
-    # ####
     # Convert hourly to daily data if needed (e.g. for grassland model)
     if data_resolution == "hourly" and final_resolution == "daily":
         # Dates (omit last entry from last Day + 1 at 00:00)
@@ -545,7 +526,6 @@ def weather_data_to_txt_file(
         # CO2 default value 400
         co2 = [400] * len(time)
 
-        # Code for PET reading from CDS in commits before 2024-01
         # Remaining data needed for PET calculations
         # SLHF (omit first entry from first Day at 00:00)
         slhf = df_collect[
@@ -611,13 +591,13 @@ def weather_data_to_txt_file(
             }
         )
 
-        # Save DataFrame to .txt file, FileName with DEIMS.iD if existing
+        # Save DataFrame to .txt file
         file_name = construct_weather_data_file_name(
             "weatherDataPrepared",
             data_set,
             final_resolution,
             ".txt",
-            deims_id if deims_id is not None else coordinates,
+            coordinates,
             f"{months_list[0][0]:04d}-{months_list[0][1]:02d}",
             f"{months_list[-2][0]:04d}-{months_list[-2][1]:02d}",
             ["Weather"],

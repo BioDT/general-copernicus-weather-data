@@ -21,58 +21,53 @@ from copernicus import utils as ut
 
 
 def data_processing(
-    data_sets,
-    final_resolution,
     years,
     months,
     coordinates,
-    deims_id,
+    *,
+    final_resolution="daily",
 ):
     """
     Download data from CDS API. Convert to .txt files.
 
     Parameters:
-        data_sets (list of str): Names of Copernicus datasets.
-        final_resolution (str): Resolution for final text file ("hourly" or "daily").
         years (list of int): Years list.
         months (list of int): Months list.
-        coordinates (list of dict): List of dictionaries with "lat" and "lon" keys.
-        deims_id (str): Identifier of the eLTER site.
+        coordinates (list of dict): List of dictionaries with 'lat' and 'lon' keys.
+        final_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
     """
-    # hard coded because only options for now, but still passed as args to functions using them
+    # Only options for now, but still passed as args to functions using them.
+    data_set = "reanalysis-era5-land"
     data_resolution = "hourly"
     data_format = "netcdf"
 
-    if coordinates is None:
-        if deims_id:
-            coordinates = ut.get_deims_coordinates(deims_id)
-        else:
-            raise ValueError(
-                "No location defined. Please provide coordinates or DEIMS.iD!"
-            )
+    if "lat" in coordinates and "lon" in coordinates:
+        print(
+            f"Preparing weather data for latitude: {coordinates['lat']}, longitude: {coordinates['lon']} ..."
+        )
+    else:
+        raise ValueError(
+            "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
+        )
 
     months_list = gwd.construct_months_list(years, months)
     data_var_specs = gwd.get_var_specs()
-
-    for data_set in data_sets:  # can be simplified when only ERA5-Land dataset is used
-        data_requests = gwd.configure_data_request(
-            data_set,
-            data_var_specs,
-            data_format,
-            data_resolution,
-            coordinates,
-            months_list,
-        )
-
-        gwd.download_weather_data(data_set, data_requests, data_resolution)
+    data_requests = gwd.configure_data_request(
+        data_set,
+        data_var_specs,
+        data_format,
+        data_resolution,
+        coordinates,
+        months_list,
+    )
+    gwd.download_weather_data(data_set, data_requests, data_resolution)
 
     gwd.weather_data_to_txt_file(
-        data_sets,
+        data_set,
         data_var_specs,
         data_format,
         data_resolution,
         final_resolution,
-        deims_id,
         coordinates,
         months_list,
     )

@@ -16,7 +16,6 @@ https://joinup.ec.europa.eu/software/page/eupl
 
 import datetime
 
-import deims
 import numpy as np
 import pytz
 from suntime import Sun, SunTimeException
@@ -155,7 +154,7 @@ def get_day_length(coordinates, date_iterable):
     Get day length in hours for a given location and list of dates.
 
     Parameters:
-        coordinates (dict): Coordinates with 'lat' and 'lon'.
+        coordinates (dict): Coordinates dictionary with 'lat' and 'lon' keys.
         date_iterable (iterable): Iterable of date strings.
 
     Returns:
@@ -195,39 +194,6 @@ def get_data_suffix(data_format):
     elif data_format == "grib":
         data_suffix = ".grib"
     else:
-        raise ValueError("Unsupported data format")
+        raise ValueError("Unsupported data format.")
 
     return data_suffix
-
-
-def get_deims_coordinates(deims_id):
-    """
-    Get coordinates for a DEIMS.iD.
-
-    Parameters:
-        deims_id (str): DEIMS.iD.
-
-    Returns:
-        dict: Coordinates as a dictionary with 'lat' and 'lon'.
-    """
-    try:
-        deims_gdf = deims.getSiteCoordinates(deims_id, filename=None)
-        # deims_gdf = deims.getSiteBoundaries(deims_id, filename=None)  # option: collect all coordinates from deims_gdf.boundary[0] ...
-
-        lon = deims_gdf.geometry[0].x
-        lat = deims_gdf.geometry[0].y
-        name = deims_gdf.name[0]
-        print(f"Coordinates for DEIMS.id '{deims_id}' found ({name}).")
-        print(f"Latitude: {lat}, Longitude: {lon}")
-
-        return {
-            "lat": lat,
-            "lon": lon,
-            "deims_id": deims_id,
-            "found": True,
-            "name": name,
-        }
-    except Exception as e:
-        print(f"Error: coordinates for DEIMS.id '{deims_id}' not found ({e})!")
-
-        return {"deims_id": deims_id, "found": False}

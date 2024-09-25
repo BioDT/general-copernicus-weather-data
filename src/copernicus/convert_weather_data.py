@@ -1,9 +1,6 @@
 """
 Module Name: convert_weather_data.py
 Description: Functions for conversions and subsequent calculations from Copernicus weather data.
-             Includes PET calculation based on FAO recommendation (Allen et al. 1998 FAO Irrigation and drainage paper 56)
-             and Thornthwaite equation (e.g. Pereira and Pruitt 2004 Agricultural Water Management, https://doi.org/10.1016/j.agwat.2003.11.003)
-             Cf. https://pyeto.readthedocs.io, but pyeto package is not on PyPI.
 
 Copyright (C) 2024
 - Thomas Banitz, Franziska Taubert, Helmholtz Centre for Environmental Research GmbH - UFZ, Leipzig, Germany
@@ -15,6 +12,18 @@ You may not use this work except in compliance with the Licence.
 
 You may obtain a copy of the Licence at:
 https://joinup.ec.europa.eu/software/page/eupl
+
+Sources:
+    PET calculation based on FAO recommendation:
+    - Allen, R.G., Pereira, L.S., Raes, D., Smith, M. (1998).
+      Crop evapotranspiration-Guidelines for computing crop water requirements-FAO Irrigation and drainage paper 56.
+      Fao, Rome, 300(9), D05109.
+
+    PET calculation based on Thornthwaite equation:
+    - Pereira, A.R., Pruitt, W.O. (2004).
+      Adaptation of the Thornthwaite scheme for estimating daily reference evapotranspiration.
+      Agricultural Water Management 66, 251–257. https://doi.org/10.1016/j.agwat.2003.11.003
+    - cf. https://pyeto.readthedocs.io, but pyeto package is not on PyPI.
 """
 
 import statistics as stats
