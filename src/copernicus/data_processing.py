@@ -17,7 +17,6 @@ https://joinup.ec.europa.eu/software/page/eupl
 """
 
 from copernicus import get_weather_data as gwd
-from copernicus import utils as ut
 
 
 def data_processing(
@@ -36,11 +35,6 @@ def data_processing(
         coordinates (list of dict): List of dictionaries with 'lat' and 'lon' keys.
         final_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
     """
-    # Only options for now, but still passed as args to functions using them.
-    data_set = "reanalysis-era5-land"
-    data_resolution = "hourly"
-    data_format = "netcdf"
-
     if "lat" in coordinates and "lon" in coordinates:
         print(
             f"Preparing weather data for latitude: {coordinates['lat']}, longitude: {coordinates['lon']} ..."
@@ -53,21 +47,11 @@ def data_processing(
     months_list = gwd.construct_months_list(years, months)
     data_var_specs = gwd.get_var_specs()
     data_requests = gwd.configure_data_request(
-        data_set,
         data_var_specs,
-        data_format,
-        data_resolution,
         coordinates,
         months_list,
     )
-    gwd.download_weather_data(data_set, data_requests, data_resolution)
-
+    gwd.download_weather_data(data_requests)
     gwd.weather_data_to_txt_file(
-        data_set,
-        data_var_specs,
-        data_format,
-        data_resolution,
-        final_resolution,
-        coordinates,
-        months_list,
+        data_var_specs, coordinates, months_list, final_resolution=final_resolution
     )

@@ -159,42 +159,24 @@ def get_var_specs():
     return data_var_specs
 
 
-def check_missing_entries(entry_name, data_var_specs):
-    """
-    Check for missing 'entry_name' in variable specifications.
-    Prints a warning for each variable without 'entry_name'.
-
-    Parameters:
-        entry_name (str): Name of the entry to check for.
-        data_var_specs (dict): Variable specifications dictionary.
-    """
-    for key, entries in data_var_specs.items():
-        if entry_name not in entries:
-            print(f"Warning: '{entry_name}' entry missing for key '{key}'!")
-
-
 def construct_weather_data_file_name(
     folder,
-    data_set,
-    data_resolution,
-    data_suffix,
+    data_format,
     coordinates,
     year,
     month,
-    var_short,
+    data_specifier,
 ):
     """
     Construct data file name.
 
     Parameters:
         folder (str or Path): Folder where the data file will be stored.
-        data_set (str): Name of the data set.
-        data_resolution (str): Data resolution ('hourly', 'daily').
-        data_suffix (str): File suffix ('.nc').
+        data_format (str): Data format ('netcdf' or 'grib' or 'txt').
         coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
         year (int): Year for the data file.
         month (int): Month for the data file.
-        var_short (str or list of str): Variable short name(s).
+        data_specifier (str): Data specifier (e.g. 'hourly', 'weather').
 
     Returns:
         Path: Constructed data file name as a Path object.
@@ -202,88 +184,83 @@ def construct_weather_data_file_name(
     # Get folder with path appropriate for different operating systems
     folder = Path(folder)
 
-    # Set default var name if multiple vars, or get var name from list if one var
-    if len(var_short) > 1:
-        var_short = "multVars"
-    else:
-        var_short = var_short[0]
-
-    formatted_year = str(year)
-    formatted_month = str(month).zfill(2)
-
     if "lat" in coordinates and "lon" in coordinates:
-        formatted_lat = f"lat{coordinates['lat']:.6f}".replace(".", "-")
-        formatted_lon = f"lon{coordinates['lon']:.6f}".replace(".", "-")
-        file_start = f"{data_set}_{data_resolution}_{formatted_lat}_{formatted_lon}"
+        formatted_lat = f"lat{coordinates['lat']:.6f}"
+        formatted_lon = f"lon{coordinates['lon']:.6f}"
+        file_suffix = ut.get_file_suffix(data_format)
+        formatted_year = str(year)
+        formatted_month = str(month).zfill(2)
+        file_name = (
+            folder
+            / f"{formatted_lat}_{formatted_lon}_{formatted_year}_{formatted_month}__{data_specifier}{file_suffix}"
+        )
     else:
         raise ValueError(
             "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
         )
 
-    file_name = (
-        folder
-        / f"{file_start}_{formatted_year}_{formatted_month}_{var_short}{data_suffix}"
-    )
-
     return file_name
 
 
 def construct_request(
-    data_format, data_resolution, coordinates, year, month, variables
+    coordinates,
+    year,
+    month,
+    variables,
+    *,
+    data_format="netcdf",
 ):
     """
     Construct data request.
 
     Parameters:
-        data_format (str): Data format ('netcdf').
-        data_resolution (str): Data resolution ('hourly').
         coordinates (dict): Coordinates dictionary with 'lat' and 'lon'.
         year (int): Year for the data request.
         month (int): Month for the data request.
         variables (list): List of variables to request.
+        data_format (str): Data format (default if 'netcdf').
 
     Returns:
         dict: Dictionary representing the data request parameters.
     """
     # Fragments for daily requests in commits before 2023-11-08.
 
-    if data_resolution == "hourly":
-        request = {
-            "variable": variables,
-            "product_type": "reanalysis",  # ['reanalysis']
-            "grid": "0.1/0.1",
-            "area": [  # Works with exact location as lower and upper bounds of area
-                coordinates["lat"],
-                coordinates["lon"],
-                coordinates["lat"],
-                coordinates["lon"],
-            ],
-            "data_format": data_format,  # 'data_format': data_format
-            "day": ut.generate_day_values(year, month),
-            "year": str(year),
-            "month": str(month),
-            "time": [f"{i:02}:00" for i in range(24)],
-            "download_format": "unarchived",
-        }  # 'download_format': 'unarchived'
-    else:
-        raise ValueError("Unsupported data resolution.")
+    request = {
+        "variable": variables,
+        "product_type": "reanalysis",
+        "grid": "0.1/0.1",
+        "area": [  # Works with exact location as lower and upper bounds of area
+            coordinates["lat"],
+            coordinates["lon"],
+            coordinates["lat"],
+            coordinates["lon"],
+        ],
+        "data_format": data_format,
+        "day": ut.generate_day_values(year, month),
+        "year": str(year),
+        "month": str(month),
+        "time": [f"{i:02}:00" for i in range(24)],
+        "download_format": "unarchived",
+    }
 
     return request
 
 
 def configure_data_request(
-    data_set, data_var_specs, data_format, data_resolution, coordinates, months_list
+    data_var_specs,
+    coordinates,
+    months_list,
+    *,
+    data_format="netcdf",
 ):
     """
     Configure data requests.
 
     Parameters:
-        data_set (str): Name of the data set.
         data_var_specs (dict): Dictionary of variable specifications.
-        data_format (str): Data format ('netcdf').
-        data_resolution (str): Data resolution ('hourly').
-        coordinates (dict): Coordinates dictionary with 'lat' and 'lon'.
+        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
         months_list (list): List of (year, month) pairs.
+        data_format (str): Data format (default is 'netcdf').
 
     Returns:
         list: List of data requests and corresponding file names.
@@ -291,168 +268,98 @@ def configure_data_request(
     # Fragments for daily requests in commits before 2023-11-08.
 
     data_requests = []
-    data_suffix = ut.get_data_suffix(data_format)
-
-    data_set_var_name = "data_set_" + data_resolution
-    check_missing_entries(data_set_var_name, data_var_specs)
-
-    var_names = [
-        key
-        for key, entries in data_var_specs.items()
-        if entries[data_set_var_name] == data_set
-    ]
+    var_names = list(data_var_specs.keys())
     long_names = [data_var_specs[key]["long_name"] for key in var_names]
-    short_names = [data_var_specs[key]["short_name"] for key in var_names]
 
-    if data_resolution == "hourly":
-        for year, month in months_list:
-            request = construct_request(
-                data_format,
-                data_resolution,
-                coordinates,
-                year,
-                month,
-                long_names,  # Requested variables
-            )
-
-            file_name = construct_weather_data_file_name(
-                "weatherDataRaw",
-                data_set,
-                data_resolution,
-                data_suffix,
-                coordinates,
-                year,
-                month,
-                short_names,  # Requested variables' short names
-            )
-
-            data_requests.append((request, file_name))
-    else:
-        raise ValueError("Unsupported data resolution.")
+    for year, month in months_list:
+        request = construct_request(
+            coordinates,
+            year,
+            month,
+            long_names,  # requested variables
+        )
+        file_name = construct_weather_data_file_name(
+            "weatherDataRaw",
+            data_format,
+            coordinates,
+            year,
+            month,
+            "hourly",
+        )
+        data_requests.append((request, file_name))
 
     return data_requests
 
 
-def download_weather_data(data_set, data_requests, data_resolution):
+def download_weather_data(data_requests):
     """
     Download weather data from CDS API.
 
     Parameters:
-        data_set (str): Name of the data set to download.
         data_requests (list): List of data requests and corresponding file names.
-        data_resolution (str): Data resolution ('hourly').
     """
     # Fragments for daily requests in commits before 2023-11-08.
     # Asynchronous option? https://docs.python.org/3/library/asyncio.html
 
     client = cdsapi.Client()
 
-    if data_resolution == "hourly":
-        for request, file_name in data_requests:
-            Path(file_name).parent.mkdir(parents=True, exist_ok=True)
-            client.retrieve(data_set, request, file_name)
-    else:
-        raise ValueError("Unsupported data resolution.")
+    for request, file_name in data_requests:
+        Path(file_name).parent.mkdir(parents=True, exist_ok=True)
+        client.retrieve("reanalysis-era5-land", request, file_name)
 
 
 # TODO: split into several functions?
 def weather_data_to_txt_file(
-    data_set,
     data_var_specs,
-    data_format,
-    data_resolution,
-    final_resolution,
     coordinates,
     months_list,
+    *,
+    final_resolution="daily",
+    data_format="netcdf",
 ):
     """
     Process and write weather data to .txt files.
 
     Parameters:
-        data_sets (list): List of data set names.
         data_var_specs (dict): Dictionary of variable specifications.
-        data_format (str): Data format ('netcdf').
-        data_resolution (str): Data resolution ('hourly').
-        final_resolution (str): Final data resolution ('hourly' or 'daily').
         coordinates (dict): Coordinates dictionary with 'lat' and 'lon' keys.
         months_list (list): List of (year, month) pairs.
+        data_format (str): Data format (default is 'netcdf', no other option currently).
+        final_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
     """
     # Fragments for daily requests in commits before 2023-11-08.
     # Code for requests from dataset "reanalysis-era5-single-levels" in commits before 2024-01.
     # Code for PET reading from CDS in commits before 2024-01.
 
-    data_suffix = ut.get_data_suffix(data_format)
-    check_missing_entries("col_name_hourly", data_var_specs)
-    col_names = [
-        entries["col_name_hourly"]
-        for entries in data_var_specs.values()
-        if "col_name_hourly" in entries
-    ]
+    col_names = [entries["col_name_hourly"] for entries in data_var_specs.values()]
     df_collect = pd.DataFrame(columns=["time"] + col_names)
-
-    if data_resolution == "hourly":
-        # Create list of data that need to be read, as they may sit in multiple files for the same month
-        data_read_out = []
-        data_set_var_name = "data_set_" + data_resolution
-        check_missing_entries(data_set_var_name, data_var_specs)
-        check_missing_entries("short_name", data_var_specs)
-
-        var_names = [
-            key
-            for key, entries in data_var_specs.items()
-            if entries[data_set_var_name] == data_set
-        ]
-
-        if len(var_names) > 1:
-            var_short = ["multVars"]
-        elif len(var_names) == 1:
-            var_short = [data_var_specs[var_names[0]]["short_name"]]
-        else:
-            print(
-                f"Warning: No entries found that use the '{data_set}' data set for {data_resolution} resolution."
-            )
-
-        data_read_out.append((data_set, var_short))
-    else:
-        raise ValueError("Unsupported data resolution.")
+    var_names = list(data_var_specs.keys())
 
     for year, month in months_list:
-        df_temp = None
+        file_name = construct_weather_data_file_name(
+            "weatherDataRaw",
+            data_format,
+            coordinates,
+            year,
+            month,
+            "hourly",
+        )
 
-        for data_set, var_short in data_read_out:
-            file_name = construct_weather_data_file_name(
-                "weatherDataRaw",
-                data_set,
-                data_resolution,
-                data_suffix,
-                coordinates,
-                year,
-                month,
-                var_short,
+        # Open netCDF4 file and extract variables
+        ds = netCDF4.Dataset(file_name)
+        time = ds.variables["valid_time"]
+        time = num2date(time[:], time.units)
+
+        # Init data frame with time data
+        df_temp = pd.DataFrame({"time": [t.isoformat() for t in time]})
+
+        # Collect and convert hourly data from ds
+        for var_name in var_names:
+            data_temp = cwd.convert_units(
+                ds.variables[data_var_specs[var_name]["short_name"]][:].flatten(),
+                data_var_specs[var_name]["unit_conversion"],
             )
-
-            # Open netCDF4 file and extract variables
-            ds = netCDF4.Dataset(file_name)
-            # time = ds.variables["time"]
-            time = ds.variables["valid_time"]
-            time = num2date(time[:], time.units)
-
-            if data_resolution == "hourly":
-                # Init data frame with time data
-                df_temp = pd.DataFrame({"time": [t.isoformat() for t in time]})
-
-                # Collect and convert hourly data from ds
-                for var_name in var_names:
-                    data_temp = cwd.convert_units(
-                        ds.variables[data_var_specs[var_name]["short_name"]][
-                            :
-                        ].flatten(),
-                        data_var_specs[var_name]["unit_conversion"],
-                    )
-                    df_temp[data_var_specs[var_name]["col_name_hourly"]] = data_temp
-
-            else:
-                raise ValueError("Unsupported data resolution.")
+            df_temp[data_var_specs[var_name]["col_name_hourly"]] = data_temp
 
         df_collect = pd.concat([df_collect, df_temp], ignore_index=True)
 
@@ -463,11 +370,7 @@ def weather_data_to_txt_file(
 
     if (count_years < 2) or (count_months == 12):
         len_last_month = ut.get_days_in_month(months_list[-1][0], months_list[-1][1])
-
-        if data_resolution == "hourly":
-            df_collect = df_collect.iloc[: (-len_last_month * 24 + 1)]
-        elif data_resolution == "daily":
-            df_collect = df_collect.iloc[: (-len_last_month + 1)]
+        df_collect = df_collect.iloc[: (-len_last_month * 24 + 1)]
     else:
         raise ValueError(
             "Discontinuous time periods cannot be combined properly from raw data! Please select only one year or all 12 months!"
@@ -476,13 +379,11 @@ def weather_data_to_txt_file(
     # Save DataFrame to .txt file
     file_name = construct_weather_data_file_name(
         "weatherDataPrepared",
-        data_set,
-        data_resolution,
-        ".txt",
+        "txt",
         coordinates,
         f"{months_list[0][0]:04d}-{months_list[0][1]:02d}",
         f"{months_list[-2][0]:04d}-{months_list[-2][1]:02d}",
-        ["multVars"],
+        "hourly",
     )
 
     # Create data directory if missing
@@ -492,10 +393,10 @@ def weather_data_to_txt_file(
     df_collect.to_csv(
         file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"
     )
-    print(f"Text file with {data_resolution} resolution prepared.")
+    print("Text file with hourly resolution prepared.")
 
     # Convert hourly to daily data if needed (e.g. for grassland model)
-    if data_resolution == "hourly" and final_resolution == "daily":
+    if final_resolution == "daily":
         # Dates (omit last entry from last Day + 1 at 00:00)
         time = df_collect["time"][:-24:24].str.split("T").str[0].values
 
@@ -594,13 +495,11 @@ def weather_data_to_txt_file(
         # Save DataFrame to .txt file
         file_name = construct_weather_data_file_name(
             "weatherDataPrepared",
-            data_set,
-            final_resolution,
-            ".txt",
+            "txt",
             coordinates,
             f"{months_list[0][0]:04d}-{months_list[0][1]:02d}",
             f"{months_list[-2][0]:04d}-{months_list[-2][1]:02d}",
-            ["Weather"],
+            "weather",
         )
         df_collect.to_csv(
             file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"

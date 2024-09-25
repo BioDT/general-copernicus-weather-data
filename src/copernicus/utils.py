@@ -179,21 +179,23 @@ def get_day_length(coordinates, date_iterable):
     return np.array(day_lengths)
 
 
-def get_data_suffix(data_format):
+def get_file_suffix(data_format):
     """
     Determine data file ending based on data format.
 
     Parameters:
-        data_format (str): Data format ('netcdf' or 'grib').
+        data_format (str): Data format ('netcdf' or 'grib' or 'txt').
 
     Returns:
         str: Data file suffix.
     """
     if data_format == "netcdf":
-        data_suffix = ".nc"
+        file_suffix = ".nc"
     elif data_format == "grib":
-        data_suffix = ".grib"
+        file_suffix = ".grib"
+    elif data_format == "txt":
+        file_suffix = ".txt"
     else:
         raise ValueError("Unsupported data format.")
 
-    return data_suffix
+    return file_suffix
