@@ -12,11 +12,20 @@ You may not use this work except in compliance with the Licence.
 
 You may obtain a copy of the Licence at:
 https://joinup.ec.europa.eu/software/page/eupl
+
+This project has received funding from the European Union's Horizon Europe Research and Innovation
+Programme under grant agreement No 101057437 (BioDT project, https://doi.org/10.3030/101057437).
+The authors acknowledge the EuroHPC Joint Undertaking and CSC – IT Center for Science Ltd., Finland
+for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CSC – IT Center for
+Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
 """
 
-import datetime
+import csv
+from datetime import date, datetime
+from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytz
 from suntime import Sun, SunTimeException
 from timezonefinder import TimezoneFinder as tzf
@@ -124,27 +133,34 @@ def format_offset(offset_seconds):
     return offset_str
 
 
-def get_time_zone(coordinates):
+def get_time_zone(coordinates, *, return_as_string=False):
     """
     Get the time zone for a given set of coordinates.
 
     Parameters:
         coordinates (dict): Coordinates with 'lat' and 'lon'.
+        return_as_string (bool): Return time zone as formatted string (e.g. 'UTC+02:00', default is False).
 
     Returns:
-        str: Time zone as formatted string (e.g. 'UTC+02:00').
+        pytz.timezone or str:
+            time zone as pytz.timezone object (if return_as_string is False).
+            time zone as formatted string (if return_As_string is True).
     """
-    tz_loc = tzf().timezone_at(lat=coordinates["lat"], lon=coordinates["lon"])
+    tz_loc = tzf().timezone_at(lat=coordinates["lat"], lng=coordinates["lon"])
 
     if tz_loc:
         tz = pytz.timezone(tz_loc)
-        ref_date = datetime.datetime(
-            2021, 1, 1
-        )  # Just any winter day to avoid daylight saving time
-        offset = tz.utcoffset(ref_date)
-        offset_str = format_offset(offset.seconds)
 
-        return offset_str
+        if return_as_string:
+            ref_date = datetime(
+                2021, 1, 1
+            )  # just any winter day to avoid daylight saving time
+            offset = tz.utcoffset(ref_date)
+            offset_str = format_offset(offset.seconds)
+
+            return offset_str
+
+        return tz
 
     raise ValueError("Time zone not found.")
 
@@ -166,14 +182,14 @@ def get_day_length(coordinates, date_iterable):
     for date_str in date_iterable:
         try:
             year, month, day = map(int, date_str.split("-"))
-            date = datetime.date(year, month, day)
-            sunrise = sun.get_local_sunrise_time(date)
-            sunset = sun.get_local_sunset_time(date)
+            day_date = date(year, month, day)
+            sunrise = sun.get_local_sunrise_time(day_date)
+            sunset = sun.get_local_sunset_time(day_date)
             day_length = sunset - sunrise
             day_lengths.append(day_length.total_seconds() / 3600)
         except SunTimeException as e:
             # Error handling (no sunset or sunrise on given location)
-            print("Error: {0}.".format(e))
+            print(f"Error: {e}.")
             day_lengths.append(0)
 
     return np.array(day_lengths)
@@ -199,3 +215,60 @@ def get_file_suffix(data_format):
         raise ValueError("Unsupported data format.")
 
     return file_suffix
+
+
+def list_to_file(list_to_write, column_names, file_name):
+    """
+    Write a list of tuples to a text file (tab-separated) or csv file (;-separated) or an Excel file.
+
+    Parameters:
+        list_to_write (list): List of strings or tuples or dictionaries to be written to the file.
+        column_names (list): List of column names (strings).
+        file_name (str or Path): Path of output file (suffix determines file type).
+    """
+    # Convert string entries to single item tuples
+    list_to_write = [
+        (entry,) if isinstance(entry, str) else entry for entry in list_to_write
+    ]
+
+    # Check if list_to_write contains dictionaries
+    if isinstance(list_to_write[0], dict):
+        # Convert dictionaries to lists of values based on column_names
+        list_to_write = [
+            [entry.get(col, "") for col in column_names] for entry in list_to_write
+        ]
+    # Check if all tuples in list have the same length as the column_names list
+    elif not all(len(entry) == len(column_names) for entry in list_to_write):
+        print(
+            f"Error: All tuples in the list must have {len(column_names)} entries (same as column_names)."
+        )
+
+        return
+
+    file_path = Path(file_name)
+    file_suffix = file_path.suffix.lower()
+
+    # Create data directory if missing
+    Path(file_name).parent.mkdir(parents=True, exist_ok=True)
+
+    if file_suffix in [".txt", ".csv"]:
+        with open(file_path, "w", newline="", encoding="utf-8") as file:
+            writer = (
+                csv.writer(file, delimiter="\t")
+                if file_suffix == ".txt"
+                else csv.writer(file, delimiter=";")
+            )
+            header = column_names
+            writer.writerow(header)  # Header row
+
+            for entry in list_to_write:
+                writer.writerow(entry)
+    elif file_suffix == ".xlsx":
+        df = pd.DataFrame(list_to_write, columns=column_names)
+        df.to_excel(file_path, index=False)
+    else:
+        raise ValueError(
+            "Unsupported file format. Supported formats are '.txt', '.csv' and '.xlsx'."
+        )
+
+    print(f"List written to file '{file_name}'.")

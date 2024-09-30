@@ -14,6 +14,12 @@ You may not use this work except in compliance with the Licence.
 
 You may obtain a copy of the Licence at:
 https://joinup.ec.europa.eu/software/page/eupl
+
+This project has received funding from the European Union's Horizon Europe Research and Innovation
+Programme under grant agreement No 101057437 (BioDT project, https://doi.org/10.3030/101057437).
+The authors acknowledge the EuroHPC Joint Undertaking and CSC – IT Center for Science Ltd., Finland
+for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CSC – IT Center for
+Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
 """
 
 from copernicus import get_weather_data as gwd

@@ -12,6 +12,12 @@ You may not use this work except in compliance with the Licence.
 
 You may obtain a copy of the Licence at:
 https://joinup.ec.europa.eu/software/page/eupl
+
+This project has received funding from the European Union's Horizon Europe Research and Innovation
+Programme under grant agreement No 101057437 (BioDT project, https://doi.org/10.3030/101057437).
+The authors acknowledge the EuroHPC Joint Undertaking and CSC – IT Center for Science Ltd., Finland
+for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CSC – IT Center for
+Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
 """
 
 from pathlib import Path
@@ -61,7 +67,6 @@ def get_var_specs():
     Each variable is identified by its name and includes the following information:
         long_name: Long name of the variable.
         short_name: Abbreviation of the variable.
-        data_set_hourly: Dataset name for hourly data.
         unit_conversion: Unit conversion from source to target data.
         col_name_hourly: Column name for the variable in hourly data (source data units converted).
         col_name_daily: Column name for the variable in daily data (source data units converted).
@@ -72,11 +77,11 @@ def get_var_specs():
               and each value is a dictionary of specifications.
 
     """
+    # Additional vars for PET FAO calculation in commits before 2024-09-25.
     data_var_specs = {
         "precipitation": {
             "long_name": "total_precipitation",
             "short_name": "tp",
-            "data_set_hourly": "reanalysis-era5-land",
             "unit_conversion": "_to_Milli",
             "col_name_hourly": "Precipitation[mm] (acc.)",
             "col_name_daily": "Precipitation[mm]",
@@ -85,7 +90,6 @@ def get_var_specs():
         "temperature": {
             "long_name": "2m_temperature",
             "short_name": "t2m",
-            "data_set_hourly": "reanalysis-era5-land",
             "unit_conversion": "Kelvin_to_Celsius",
             "col_name_hourly": "Temperature[degC]",
             "col_name_daily": "Temperature[degC]",
@@ -94,65 +98,10 @@ def get_var_specs():
         "solar_radiation_down": {
             "long_name": "surface_solar_radiation_downwards",
             "short_name": "ssrd",
-            "data_set_hourly": "reanalysis-era5-land",
             "unit_conversion": 0,
             "col_name_hourly": "SSRD[Jm-2] (acc.)",
-            "col_name_daily": "PPFD_down[µmolm-2s-1]",  # as converted to PAR
+            "col_name_daily": "PAR[µmolm-2s-1]",  # was: PPFD_down
             "daily_stat": "daily_maximum",
-        },
-        "solar_radiation_net": {
-            "long_name": "surface_net_solar_radiation",
-            "short_name": "ssr",
-            "data_set_hourly": "reanalysis-era5-land",
-            "unit_conversion": 0,
-            "col_name_hourly": "SSR[Jm-2] (acc.)",
-            "col_name_daily": "SSR[Jm-2]",
-            "daily_stat": "daily_maximum",
-        },
-        "surface_latent_heat_flux": {
-            "long_name": "surface_latent_heat_flux",
-            "short_name": "slhf",
-            "data_set_hourly": "reanalysis-era5-land",
-            "unit_conversion": 0,
-            "col_name_hourly": "SLHF[Jm-2] (acc.)",
-            "col_name_daily": "SLHF[Jm-2]",
-            "daily_stat": "daily_sum",
-        },
-        "eastward_wind": {
-            "long_name": "10m_u_component_of_wind",
-            "short_name": "u10",
-            "data_set_hourly": "reanalysis-era5-land",
-            "unit_conversion": 0,
-            "col_name_hourly": "U10[ms-1]",
-            "col_name_daily": "",
-            "daily_stat": "daily_mean",
-        },
-        "northward_wind": {
-            "long_name": "10m_v_component_of_wind",
-            "short_name": "v10",
-            "data_set_hourly": "reanalysis-era5-land",
-            "unit_conversion": 0,
-            "col_name_hourly": "V10[ms-1]",
-            "col_name_daily": "",
-            "daily_stat": "daily_mean",
-        },
-        "dewpoint_temperature": {
-            "long_name": "2m_dewpoint_temperature",
-            "short_name": "d2m",
-            "data_set_hourly": "reanalysis-era5-land",
-            "unit_conversion": "Kelvin_to_Celsius",
-            "col_name_hourly": "DewpointTemperature[degC]",
-            "col_name_daily": "",
-            "daily_stat": "daily_mean",
-        },
-        "surface_pressure": {
-            "long_name": "surface_pressure",
-            "short_name": "sp",
-            "data_set_hourly": "reanalysis-era5-land",
-            "unit_conversion": "_to_Kilo",
-            "col_name_hourly": "SurfacePressure[kPa]",
-            "col_name_daily": "",
-            "daily_stat": "daily_mean",
         },
     }
 
@@ -305,7 +254,7 @@ def download_weather_data(data_requests):
 
     for request, file_name in data_requests:
         Path(file_name).parent.mkdir(parents=True, exist_ok=True)
-        client.retrieve("reanalysis-era5-land", request, file_name)
+        # client.retrieve("reanalysis-era5-land", request, file_name)
 
 
 # TODO: split into several functions?
@@ -316,6 +265,7 @@ def weather_data_to_txt_file(
     *,
     final_resolution="daily",
     data_format="netcdf",
+    data_source="https://cds-beta.climate.copernicus.eu/api",
 ):
     """
     Process and write weather data to .txt files.
@@ -332,8 +282,9 @@ def weather_data_to_txt_file(
     # Code for PET reading from CDS in commits before 2024-01.
 
     col_names = [entries["col_name_hourly"] for entries in data_var_specs.values()]
-    df_collect = pd.DataFrame(columns=["time"] + col_names)
+    df_collect = pd.DataFrame(columns=["valid_time"] + col_names)
     var_names = list(data_var_specs.keys())
+    data_query_protocol = []
 
     for year, month in months_list:
         file_name = construct_weather_data_file_name(
@@ -347,11 +298,16 @@ def weather_data_to_txt_file(
 
         # Open netCDF4 file and extract variables
         ds = netCDF4.Dataset(file_name)
-        time = ds.variables["valid_time"]
-        time = num2date(time[:], time.units)
+        history = getattr(ds, "history")
+        time_stamp, extra_info = history.split(" ", 1)
+        data_query_protocol.append(
+            [year, month, data_source, time_stamp + "+00:00", extra_info]
+        )
 
         # Init data frame with time data
-        df_temp = pd.DataFrame({"time": [t.isoformat() for t in time]})
+        valid_time = ds.variables["valid_time"]
+        valid_time = num2date(valid_time[:], valid_time.units)
+        df_temp = pd.DataFrame({"valid_time": [t.isoformat() for t in valid_time]})
 
         # Collect and convert hourly data from ds
         for var_name in var_names:
@@ -395,13 +351,23 @@ def weather_data_to_txt_file(
     )
     print("Text file with hourly resolution prepared.")
 
+    if data_query_protocol:
+        file_name = file_name.with_name(
+            file_name.stem + "__data_query_protocol" + file_name.suffix
+        )
+        ut.list_to_file(
+            data_query_protocol,
+            ["year", "month", "data_source", "time_stamp", "info"],
+            file_name,
+        )
+
     # Convert hourly to daily data if needed (e.g. for grassland model)
     if final_resolution == "daily":
         # Dates (omit last entry from last Day + 1 at 00:00)
-        time = df_collect["time"][:-24:24].str.split("T").str[0].values
+        valid_date = df_collect["valid_time"][:-24:24].str.split("T").str[0].values
 
         # Day lengths
-        day_length = ut.get_day_length(coordinates, time)
+        day_length = ut.get_day_length(coordinates, valid_date)
 
         # Precipitation (omit first entry from first Day at 00:00)
         precipitation = df_collect[data_var_specs["precipitation"]["col_name_hourly"]][
@@ -413,6 +379,9 @@ def weather_data_to_txt_file(
             data_var_specs["temperature"]["col_name_hourly"]
         ].values
         temperature = cwd.daily_mean_00_24(temperature_hourly)
+        temperature_daylight = cwd.daily_mean_daylight(
+            temperature_hourly, valid_date, coordinates
+        )
 
         # SSRD & SSR (omit first entry from first Day at 00:00)
         ssrd = df_collect[data_var_specs["solar_radiation_down"]["col_name_hourly"]][
@@ -420,77 +389,89 @@ def weather_data_to_txt_file(
         ].values
         # Convert net radiation to PAR
         ssrd_par = cwd.par_from_net_radiation(ssrd)
-        ssr = df_collect[data_var_specs["solar_radiation_net"]["col_name_hourly"]][
-            24::24
-        ].values
+        # ssr = df_collect[data_var_specs["solar_radiation_net"]["col_name_hourly"]][
+        #     24::24
+        # ].values
 
-        # CO2 default value 400
-        co2 = [400] * len(time)
+        # # CO2 default value 400
+        # co2 = [400] * len(valid_date)
 
-        # Remaining data needed for PET calculations
-        # SLHF (omit first entry from first Day at 00:00)
-        slhf = df_collect[
-            data_var_specs["surface_latent_heat_flux"]["col_name_hourly"]
-        ][24::24].values
+        # # Remaining data needed for PET calculations
+        # # SLHF (omit first entry from first Day at 00:00)
+        # slhf = df_collect[
+        #     data_var_specs["surface_latent_heat_flux"]["col_name_hourly"]
+        # ][24::24].values
 
-        # Wind speed data (10 m, convert to 2m, get daily means with average of 00:00 and 24:00 as one of 24 values)
-        wind_speed_10m = cwd.wind_speed_from_u_v(
-            df_collect[data_var_specs["eastward_wind"]["col_name_hourly"]].values,
-            df_collect[data_var_specs["northward_wind"]["col_name_hourly"]].values,
-        )
-        wind_speed_2m = cwd.wind_speed_height_change(
-            wind_speed_10m, height1=10, height2=2, z0=0.03
-        )
-        wind_speed_2m = cwd.daily_mean_00_24(wind_speed_2m)
+        # # Wind speed data (10 m, convert to 2m, get daily means with average of 00:00 and 24:00 as one of 24 values)
+        # wind_speed_10m = cwd.wind_speed_from_u_v(
+        #     df_collect[data_var_specs["eastward_wind"]["col_name_hourly"]].values,
+        #     df_collect[data_var_specs["northward_wind"]["col_name_hourly"]].values,
+        # )
+        # wind_speed_2m = cwd.wind_speed_height_change(
+        #     wind_speed_10m, height1=10, height2=2, z0=0.03
+        # )
+        # wind_speed_2m = cwd.daily_mean_00_24(wind_speed_2m)
 
-        # Dewpoint temperature (get daily means with average of 00:00 and 24:00 as one of 24 values)
-        dewpoint_temperature_hourly = df_collect[
-            data_var_specs["dewpoint_temperature"]["col_name_hourly"]
-        ].values
-        # dewpoint_temperature = cwd.daily_mean_00_24(dewpoint_temperature_hourly)
+        # # Dewpoint temperature (get daily means with average of 00:00 and 24:00 as one of 24 values)
+        # dewpoint_temperature_hourly = df_collect[
+        #     data_var_specs["dewpoint_temperature"]["col_name_hourly"]
+        # ].values
+        # # dewpoint_temperature = cwd.daily_mean_00_24(dewpoint_temperature_hourly)
 
-        # Surface pressure (get daily means with average of 00:00 and 24:00 as one of 24 values)
-        surface_pressure = cwd.daily_mean_00_24(
-            df_collect[data_var_specs["surface_pressure"]["col_name_hourly"]].values
-        )
+        # # Surface pressure (get daily means with average of 00:00 and 24:00 as one of 24 values)
+        # surface_pressure = cwd.daily_mean_00_24(
+        #     df_collect[data_var_specs["surface_pressure"]["col_name_hourly"]].values
+        # )
 
-        # PET from FAO-56 Penman-Monteith equation
-        pet_fao = cwd.get_pet_fao(
-            ssr,
-            slhf,
-            temperature,
-            temperature_hourly,
-            wind_speed_2m,
-            dewpoint_temperature_hourly,
-            surface_pressure,
-        )
+        # # PET from FAO-56 Penman-Monteith equation
+        # pet_fao = cwd.get_pet_fao(
+        #     ssr,
+        #     slhf,
+        #     temperature,
+        #     temperature_hourly,
+        #     wind_speed_2m,
+        #     dewpoint_temperature_hourly,
+        #     surface_pressure,
+        # )
 
         # PET from Thornthwaite equation
         pet_thornthwaite = cwd.get_pet_thornthwaite(
             temperature,
             temperature_hourly,
             day_length,
-            time,
+            valid_date,
             use_effective_temperature=False,
         )
 
         # Overwrite hourly dataframe with daily values
-        # Include both PET versions and SSRD, SSRD, SLHF for analysis
+        # Include only PET Thornthwaite version
         df_collect = pd.DataFrame(
             {
-                "Date": time,
+                "Date": valid_date,
                 data_var_specs["precipitation"]["col_name_daily"]: precipitation,
                 data_var_specs["temperature"]["col_name_daily"]: temperature,
+                "Temperature_Daylight[degC]": temperature_daylight,
                 data_var_specs["solar_radiation_down"]["col_name_daily"]: ssrd_par,
                 "Daylength[h]": day_length,
-                "PET_fao[mm]": pet_fao,
-                "PET_thornthwaite[mm]": pet_thornthwaite,
-                "CO2[ppm]": co2,
-                "SSRD[Jm-2]": ssrd,
-                data_var_specs["solar_radiation_net"]["col_name_daily"]: ssr,
-                data_var_specs["surface_latent_heat_flux"]["col_name_daily"]: slhf,
+                "PET[mm]": pet_thornthwaite,  # was: PET_thornthwaite
             }
         )
+        # # Include both PET versions and SSRD, SSRD, SLHF for analysis
+        # df_collect = pd.DataFrame(
+        #     {
+        #         "Date": valid_date,
+        #         data_var_specs["precipitation"]["col_name_daily"]: precipitation,
+        #         data_var_specs["temperature"]["col_name_daily"]: temperature,
+        #         data_var_specs["solar_radiation_down"]["col_name_daily"]: ssrd_par,
+        #         "Daylength[h]": day_length,
+        #         "PET_fao[mm]": pet_fao,
+        #         "PET_thornthwaite[mm]": pet_thornthwaite,
+        #         "CO2[ppm]": co2,
+        #         "SSRD[Jm-2]": ssrd,
+        #         data_var_specs["solar_radiation_net"]["col_name_daily"]: ssr,
+        #         data_var_specs["surface_latent_heat_flux"]["col_name_daily"]: slhf,
+        #     }
+        # )
 
         # Save DataFrame to .txt file
         file_name = construct_weather_data_file_name(

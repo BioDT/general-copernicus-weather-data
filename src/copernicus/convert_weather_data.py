@@ -13,6 +13,12 @@ You may not use this work except in compliance with the Licence.
 You may obtain a copy of the Licence at:
 https://joinup.ec.europa.eu/software/page/eupl
 
+This project has received funding from the European Union's Horizon Europe Research and Innovation
+Programme under grant agreement No 101057437 (BioDT project, https://doi.org/10.3030/101057437).
+The authors acknowledge the EuroHPC Joint Undertaking and CSC – IT Center for Science Ltd., Finland
+for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CSC – IT Center for
+Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
+
 Sources:
     PET calculation based on FAO recommendation:
     - Allen, R.G., Pereira, L.S., Raes, D., Smith, M. (1998).
@@ -27,8 +33,11 @@ Sources:
 """
 
 import statistics as stats
+from datetime import date, datetime, timedelta
 
 import numpy as np
+from astral import LocationInfo
+from astral.sun import sun
 
 from copernicus import utils as ut
 
@@ -64,10 +73,7 @@ def convert_units(values, unit_conversion):
         elif unit_conversion == "d-1_to_s-1":
             return values / (24 * 60 * 60)
         else:
-            print(
-                f"Error: Unit conversion '{unit_conversion}' not found! No conversion performed."
-            )
-            return values
+            raise ValueError(f"Unit conversion '{unit_conversion}' not found!")
     else:
         return values
 
@@ -161,28 +167,83 @@ def daily_max_00_24(values_hourly):
     return np.array(maxs)
 
 
-# TODO: mean temperature from sunrise to sunset
-# def daily_mean_daylight(values_hourly, time, location):
-# # weighted mean of temp values between sunset and sunrise time,
-# # first and last multiplied with the share of a full hour for which the sun is up
-# # e.g.: sunrise 05:45, value from 06:00 goes in with factor 0.75 (05:45-06:30)
-# #       sunrise 06:15, value from 06:00 goes in with factor 0.25 (06:15-06:30)
+def daily_mean_daylight(values_hourly, date_iterable, coordinates):
+    """
+    Calculate daily mean values from hourly data, considering only daylight hours.
+
+    Parameters:
+        values_hourly (numpy.ndarray): Hourly data.
+        date_iterable (list or numpy.ndarray): Iterable of date strings (e.g., 'YYYY-MM-DD') corresponding to each day.
+        coordinates (dict): A dictionary with 'lat' and 'lon' keys for the location.
+
+    Returns:
+        numpy.ndarray: Daily mean temperature values for daylight hours only.
+    """
+    time_zone = ut.get_time_zone(coordinates)
+    location = LocationInfo(
+        "name", "region", time_zone.zone, coordinates["lat"], coordinates["lon"]
+    )
+    values_daylight = []
+
+    for i, date_str in enumerate(date_iterable):
+        try:
+            year, month, day = map(int, date_str.split("-"))
+            day_date = date(year, month, day)
+            day_date = datetime.strptime(date_str, "%Y-%m-%d")
+
+            # Get local sunrise and sunset times
+            sun_local = sun(location.observer, date=day_date, tzinfo=time_zone)
+
+            # Adjust sunrise and sunset to take into account the CDS hour representation,
+            # and ignore daylight saving time DST
+            sunrise_plus_30 = (
+                sun_local["sunrise"]
+                + timedelta(minutes=30)
+                - sun_local["sunrise"].tzinfo._dst
+            )
+            sunset_plus_30 = (
+                sun_local["sunset"]
+                + timedelta(minutes=30)
+                - sun_local["sunset"].tzinfo._dst
+            )
+
+            # Determine indices of hours not fully considered
+            sunrise_index = sunrise_plus_30.hour
+            sunset_index = sunset_plus_30.hour if sunset_plus_30.day == day else 24
+
+            # Fractional weights for sunset and sunrise hour (simply cutting off seconds, no rounding),
+            # weights=1 in between, weights=0 before and after
+            weights = np.zeros(25)
+            weights[sunrise_index] = 1 - sunrise_plus_30.minute / 60
+            weights[sunset_index] = sunset_plus_30.minute / 60
+            weights[sunrise_index + 1 : sunset_index] = 1
+
+            # Get weighted mean for daylight hours
+            day_values = values_hourly[i * 24 : i * 24 + 25]
+            weighted_mean = np.sum(day_values * weights) / np.sum(weights)
+            values_daylight.append(weighted_mean)
+        except Exception as e:
+            # Error handling (no sunset or sunrise on given location)
+            print(f"Error: {e}.")
+            values_daylight.append(np.nan)
+
+    return np.array(values_daylight)
 
 
-def monthly_mean(values_daily, time):
+def monthly_mean(values_daily, date_iterable):
     """
     Calculate monthly mean from daily data for each month of each year.
 
     Parameters:
         values_daily (array-like): Array of daily data.
-        time (array-like): Array of daily time strings in the format yyyy-mm-dd.
+        date_iterable (array-like): Array of daily time strings in the format yyyy-mm-dd.
 
     Returns:
         numpy.ndarray: 2D array containing monthly mean values for each month of each year.
     """
     # Extract year and month from time strings
-    years = np.array([int(date[:4]) for date in time])
-    months = np.array([int(date[5:7]) for date in time])
+    years = np.array([int(day_date[:4]) for day_date in date_iterable])
+    months = np.array([int(day_date[5:7]) for day_date in date_iterable])
     unique_years = np.unique(years)
 
     # Calculate monthly means for each month of each year
@@ -403,7 +464,11 @@ def get_pet_fao(
 
 
 def get_pet_thornthwaite(
-    temperature, temperature_hourly, day_length, time, use_effective_temperature=True
+    temperature,
+    temperature_hourly,
+    day_length,
+    date_iterable,
+    use_effective_temperature=True,
 ):
     """
     Calculate Potential Evapotranspiration (PET) using the Thornthwaite equation.
@@ -413,7 +478,7 @@ def get_pet_thornthwaite(
         temperature (numpy.ndarray):  Daily mean temperature (unit: degC).
         temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC).
         day_length (numpy.ndarray): Daily day length (unit: hours).
-        time (array-like): Array of daily time strings in the format yyyy-mm-dd.
+        date_iterable (array-like): Array of daily time strings in the format yyyy-mm-dd.
         use_effective_temperature(bool): Effective temperatures instead of daily means (default is True).
 
     Returns:
@@ -423,7 +488,7 @@ def get_pet_thornthwaite(
     pet_thorn = np.full_like(day_length, np.nan)
 
     # Extract year from time strings
-    years = np.array([int(date[:4]) for date in time])
+    years = np.array([int(day_date[:4]) for day_date in date_iterable])
     unique_years = np.unique(years)
 
     # Check if all days from a year are present in the data (as per total number), otherwise return 'nan'
@@ -443,7 +508,7 @@ def get_pet_thornthwaite(
             return pet_thorn
 
     # Prepare variables for PET calculation
-    temperature_monthly = monthly_mean(temperature, time)
+    temperature_monthly = monthly_mean(temperature, date_iterable)
     heat_index_yearly = heat_index(temperature_monthly)
     exponent_a_yearly = exponent_a(heat_index_yearly)
     correct_to_daily = day_length / 360  # Eq. (5) in Pereira and Pruitt 2004
@@ -455,7 +520,7 @@ def get_pet_thornthwaite(
         else temperature
     )
 
-    # Iterate over each entry in time and calculate PET for each day
+    # Iterate over each entry in date_iterable and calculate PET for each day
     for i, year in enumerate(years):
         if temperature_used[i] <= 0:
             pet_thorn[i] = 0
@@ -481,7 +546,7 @@ def get_pet_thornthwaite(
                     - 0.43 * temperature_used[i] ** 2
                 )
                 print(
-                    f"PET (Thornthwaite), {time[i]}: "
+                    f"PET (Thornthwaite), {date_iterable[i]}: "
                     f"temperature {temperature_used[i]:.2f} °C > 26 °C, "
                     f"using Eq. (4): {pet_thorn[i]:.2f} mm, "
                     f"Eq. (1) would give: {pet_eq1:.2f} mm."
