@@ -32,13 +32,13 @@ from copernicus import convert_weather_data as cwd
 from copernicus import utils as ut
 
 
-def construct_months_list(years, months):
+def construct_months_list(years, months=list(range(1, 13))):
     """
     Construct a list of year-month pairs.
 
     Parameters:
         years (list of int): List of years.
-        months (list of int): List of months (1 to 12).
+        months (list of int): List of months (default is 1 to 12).
 
     Returns:
         list of tuples: A list of (year, month) tuples representing all combinations
@@ -46,15 +46,39 @@ def construct_months_list(years, months):
     """
     months_list = []
 
+    # Check if months list is correct and has no gaps
+    months = list(np.unique(months))
+
+    if months[0] < 1 or months[-1] > 12:
+        raise ValueError(
+            f"Month has invalid entries ({months}). Please provide only values between 1 and 12!"
+        )
+
+    if months != list(range(months[0], months[-1] + 1)):
+        raise ValueError(
+            f"Month list has gaps ({months}). Please provide consecutive months!"
+        )
+
     for year in years:
+        # Add all months
         for month in months:
             months_list.append((year, month))
 
-        # Always add next month if months don't go until the end of the year, or else the January after the final year
+        # Add month before first month (can be December of previous year, can create duplicates)
+        if months[0] > 1:
+            months_list.append((year, months[0] - 1))
+        else:
+            months_list.append((year - 1, 12))
+
+        # Add month after last month (can be January of next year, can create duplicates)
         if months[-1] < 12:
             months_list.append((year, months[-1] + 1))
-        elif year == years[-1]:
+        else:
             months_list.append((year + 1, 1))
+
+    # Remove duplicates and sort
+    months_list = list(set([y_m for y_m in months_list]))
+    months_list.sort(key=lambda x: (x[0], x[1]))
 
     return months_list
 
@@ -190,7 +214,7 @@ def construct_request(
         "month": str(month),
         "time": [f"{i:02}:00" for i in range(24)],
         "download_format": "unarchived",
-    }
+    }  # not working: "time_zone": "UTC+01:00",
 
     return request
 
@@ -337,7 +361,7 @@ def weather_data_to_txt_file(
         "weatherDataPrepared",
         "txt",
         coordinates,
-        f"{months_list[0][0]:04d}-{months_list[0][1]:02d}",
+        f"{months_list[1][0]:04d}-{months_list[1][1]:02d}",
         f"{months_list[-2][0]:04d}-{months_list[-2][1]:02d}",
         "hourly",
     )
