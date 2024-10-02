@@ -36,6 +36,7 @@ import statistics as stats
 from datetime import date, datetime, timedelta
 
 import numpy as np
+import pandas as pd
 from astral import LocationInfo
 from astral.sun import sun
 
@@ -92,7 +93,9 @@ def par_from_net_radiation(values):
     par = values * 4.57 * 0.5
 
     # Convert from radiation per day to per second
-    return convert_units(par, "d-1_to_s-1")
+    par = convert_units(par, "d-1_to_s-1")
+
+    return np.array(par)
 
 
 def daily_mean_00_24(values_hourly):
@@ -167,6 +170,43 @@ def daily_max_00_24(values_hourly):
     return np.array(maxs)
 
 
+def daily_accumulated(values_hourly, tz_offset_hours=0):
+    """
+    Calculate daily values from accumulative hourly data, considering time zone shifts (full hours only).
+
+    Parameters:
+        values_hourly (numpy.ndarray): Hourly data.
+        tz_offset_hours (int): Offset of local time zone to UTC in hours (default is 0).
+
+    Returns:
+        numpy.ndarray: Daily accumulated values.
+    """
+    # Accumulated values at start of local day (at 00:00) since UTC day start of previous day,
+    # i.e. fully belonging to previous day
+    values_local_day_start = values_hourly[::24]
+
+    if tz_offset_hours == 0:
+        # Omit first entry because it belongs to day before first day
+        return values_local_day_start[1:]
+    else:
+        # Accumulated values at the UTC day start within the current day (and since previous UTC day start),
+        # i.e. only partly belonging to current local day
+        if tz_offset_hours > 0:
+            # Values at 00:00 + offset
+            values_utc_day_start = values_hourly[tz_offset_hours::24]
+        else:
+            # Values at 00:00 of day+1 + negative offset
+            values_utc_day_start = values_hourly[24 + tz_offset_hours :: 24]
+
+        values_accumulated = (
+            values_utc_day_start  # until UTC day start
+            - values_local_day_start[:-1]  # until local day start (i.e. previous day)
+            + values_local_day_start[1:]  # since UTC day start
+        )
+
+    return values_accumulated
+
+
 def daily_mean_daylight(values_hourly, date_iterable, coordinates):
     """
     Calculate daily mean values from hourly data, considering only daylight hours.
@@ -228,6 +268,68 @@ def daily_mean_daylight(values_hourly, date_iterable, coordinates):
             values_daylight.append(np.nan)
 
     return np.array(values_daylight)
+
+
+def hourly_to_daily(
+    df_hourly, data_var_specs, coordinates, time_range_str, tz_offset_hours
+):
+    # Dates (omit last entry from last Day + 1 at 00:00)
+    local_date = df_hourly["Local time"][:-24:24].str.split("T").str[0].values
+
+    # Day lengths
+    day_length = ut.get_day_length(coordinates, local_date)
+
+    # Precipitation (omit first entry from first Day at 00:00)
+    precipitation = df_hourly[data_var_specs["precipitation"]["col_name_hourly"]].values
+    precipitation = daily_accumulated(precipitation, tz_offset_hours)
+
+    # Temperature (hourly still needed for PET calculation, daily means considering 00:00 and 24:00 values)
+    temperature_hourly = df_hourly[
+        data_var_specs["temperature"]["col_name_hourly"]
+    ].values
+    temperature = daily_mean_00_24(temperature_hourly)
+    temperature_daylight = daily_mean_daylight(
+        temperature_hourly, local_date, coordinates
+    )
+
+    # SSRD (omit first entry from first Day at 00:00)
+    ssrd = df_hourly[data_var_specs["solar_radiation_down"]["col_name_hourly"]].values
+    ssrd = daily_accumulated(ssrd, tz_offset_hours)
+    # Convert net radiation to PAR
+    ssrd_par = par_from_net_radiation(ssrd)
+
+    # PET from Thornthwaite equation
+    pet_thornthwaite = get_pet_thornthwaite(
+        temperature,
+        temperature_hourly,
+        day_length,
+        local_date,
+        use_effective_temperature=False,
+    )
+
+    # Write dataframe with daily values
+    df_daily = pd.DataFrame(
+        {
+            "Date": local_date,
+            data_var_specs["precipitation"]["col_name_daily"]: precipitation,
+            data_var_specs["temperature"]["col_name_daily"]: temperature,
+            "Temperature_Daylight[degC]": temperature_daylight,
+            data_var_specs["solar_radiation_down"]["col_name_daily"]: ssrd_par,
+            "Daylength[h]": day_length,
+            "PET[mm]": pet_thornthwaite,  # was: PET_thornthwaite
+        }
+    )
+
+    # Save DataFrame to .txt file
+    file_name = ut.construct_weather_data_file_name(
+        coordinates,
+        folder="weatherDataPrepared",
+        data_format="txt",
+        time_specifier=time_range_str,
+        data_specifier="weather",
+    )
+    df_daily.to_csv(file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan")
+    print("Text file with daily resolution prepared.")
 
 
 def monthly_mean(values_daily, date_iterable):

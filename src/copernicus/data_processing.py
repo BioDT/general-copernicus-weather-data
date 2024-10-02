@@ -57,7 +57,11 @@ def data_processing(
         coordinates,
         months_list,
     )
-    gwd.download_weather_data(data_requests)
+    cop_url = gwd.download_weather_data(data_requests)
     gwd.weather_data_to_txt_file(
-        data_var_specs, coordinates, months_list, final_resolution=final_resolution
+        data_var_specs,
+        coordinates,
+        months_list,
+        final_resolution=final_resolution,
+        data_source=cop_url,
     )

@@ -112,15 +112,16 @@ def generate_day_values(year, month):
         list: List of day value strings.
     """
 
-    return [str(i).zfill(2) for i in range(1, get_days_in_month(year, month) + 1)]
+    return [f"{i:02}" for i in range(1, get_days_in_month(year, month) + 1)]
 
 
-def format_offset(offset_seconds):
+def format_offset(offset_seconds, add_utc=True):
     """
     Format a time zone offset in hours and minutes.
 
     Parameters:
         offset_seconds (int): Time zone offset in seconds.
+        add_utc (bool): Inlude 'UTC' in result string (default is True).
 
     Returns:
         str: Formatted time zone offset string (e.g. 'UTC+02:00').
@@ -128,12 +129,15 @@ def format_offset(offset_seconds):
     hours, remainder = divmod(abs(offset_seconds), 3600)
     minutes = remainder // 60
     sign = "+" if offset_seconds >= 0 else "-"
-    offset_str = f"UTC{sign}{hours:02}:{minutes:02}"
+    offset_str = f"{sign}{hours:02}:{minutes:02}"
+
+    if add_utc:
+        return "UTC" + offset_str
 
     return offset_str
 
 
-def get_time_zone(coordinates, *, return_as_string=False):
+def get_time_zone(coordinates, *, return_as_offset=False):
     """
     Get the time zone for a given set of coordinates.
 
@@ -151,14 +155,13 @@ def get_time_zone(coordinates, *, return_as_string=False):
     if tz_loc:
         tz = pytz.timezone(tz_loc)
 
-        if return_as_string:
+        if return_as_offset:
             ref_date = datetime(
                 2021, 1, 1
             )  # just any winter day to avoid daylight saving time
             offset = tz.utcoffset(ref_date)
-            offset_str = format_offset(offset.seconds)
 
-            return offset_str
+            return offset
 
         return tz
 
@@ -272,3 +275,44 @@ def list_to_file(list_to_write, column_names, file_name):
         )
 
     print(f"List written to file '{file_name}'.")
+
+
+def construct_weather_data_file_name(
+    coordinates,
+    *,
+    folder="weatherDataFolder",
+    data_format="txt",
+    time_specifier="timeRange",
+    data_specifier="noInfo",
+):
+    """
+    Construct data file name and create folder if missing.
+
+    Parameters:
+        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+        folder (str or Path): Folder where the data file will be stored (default is 'weatherDataFolder').
+        data_format (str): Data format ('netcdf', 'grib' or 'txt', default is 'txt').
+        time_specifier (str): Time range specifier (e.g. '1995-03', default is 'timeRange')
+        data_specifier (str): Data specifier (e.g. 'hourly', 'weather', default is 'noInfo').
+
+    Returns:
+        Path: Constructed data file name as a Path object.
+    """
+    # Get folder with path appropriate for different operating systems, create folder if missing
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+
+    if "lat" in coordinates and "lon" in coordinates:
+        formatted_lat = f"lat{coordinates['lat']:.6f}"
+        formatted_lon = f"lon{coordinates['lon']:.6f}"
+        file_suffix = get_file_suffix(data_format)
+        file_name = (
+            folder
+            / f"{formatted_lat}_{formatted_lon}__{time_specifier}__{data_specifier}{file_suffix}"
+        )
+    else:
+        raise ValueError(
+            "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
+        )
+
+    return file_name
