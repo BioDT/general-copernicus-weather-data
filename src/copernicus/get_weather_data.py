@@ -38,12 +38,12 @@ def construct_months_list(years, months=list(range(1, 13))):
 
     Parameters:
         years (list of int): List of years.
-        months (list of int): List of months (default is 1 to 12).
+        months (list of int): List of months (default is 1 to 12, no other option if more than one year).
 
     Returns:
-        list of tuples: A list of (year, month) tuples representing all combinations
-        of years and months in the input lists, plus months before and after the months input list
-        for each year (to allow time zone shifts and retrieving accumulative values from downloaded data).
+        list of tuples: List of (year, month_string) tuples representing all combinations
+            of years and months in the input lists, plus months before first and after last month,
+            with ranges of four months for each full year ('01-04', '05-08', '09-12').
     """
     months_list = []
 
@@ -78,20 +78,24 @@ def construct_months_list(years, months=list(range(1, 13))):
         # Add month before first month of first year (can be December of previous year)
         if year == years[0]:
             if months[0] > 1:
-                months_list.append((year, months[0] - 1))
+                months_list.append((year, f"{months[0] - 1:02}"))
             else:
-                months_list.append((year - 1, 12))
+                months_list.append((year - 1, "12"))
 
-        # Add all months
-        for month in months:
-            months_list.append((year, month))
+        # Add all months, combine always 4 months if full year
+        if months == list(range(1, 13)):
+            for month in range(1, 13, 4):
+                months_list.append((year, f"{month:02}-{month+3:02}"))
+        else:
+            for month in months:
+                months_list.append((year, f"{month:02}"))
 
         # Add month after last month of last year (can be January of next year)
         if year == years[-1]:
             if months[-1] < 12:
-                months_list.append((year, months[-1] + 1))
+                months_list.append((year, f"{months[-1] + 1:02}"))
             else:
-                months_list.append((year + 1, 1))
+                months_list.append((year + 1, "01"))
 
     return months_list
 
@@ -114,6 +118,7 @@ def get_var_specs():
 
     """
     # Additional vars for PET FAO calculation in commits before 2024-09-25.
+
     data_var_specs = {
         "precipitation": {
             "long_name": "total_precipitation",
@@ -144,7 +149,7 @@ def get_var_specs():
 def construct_request(
     coordinates,
     year,
-    month,
+    month_str,
     variables,
     *,
     data_format="netcdf",
@@ -153,9 +158,10 @@ def construct_request(
     Construct data request.
 
     Parameters:
-        coordinates (dict): Coordinates dictionary with 'lat' and 'lon'.
+        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
         year (int): Year for the data request.
-        month (int): Month for the data request.
+        month_str (str): Month(s) for the data request, can be one (e.g. '03')
+            or range of months (e.g. '01-04').
         variables (list): List of variables to request.
         data_format (str): Data format (default if 'netcdf').
 
@@ -164,6 +170,7 @@ def construct_request(
     """
     # Fragments for daily requests in commits before 2023-11-08.
 
+    month_formatted = ut.format_month_str(month_str)
     request = {
         "variable": variables,
         "product_type": "reanalysis",
@@ -175,9 +182,9 @@ def construct_request(
             coordinates["lon"],
         ],
         "data_format": data_format,
-        "day": ut.generate_day_values(year, month),
+        "day": [f"{d:02}" for d in range(1, 32)],  # works also for shorter months
         "year": str(year),
-        "month": str(month),
+        "month": month_formatted,
         "time": [f"{i:02}:00" for i in range(24)],
         "download_format": "unarchived",
     }
@@ -198,7 +205,8 @@ def configure_data_request(
     Parameters:
         data_var_specs (dict): Dictionary of variable specifications.
         coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
-        months_list (list): List of (year, month) pairs.
+        months_list (list): List of (year, month_str) pairs, 'month_str' can be one (e.g. '03')
+            or range of months (e.g. '01-04').
         data_format (str): Data format (default is 'netcdf').
 
     Returns:
@@ -210,18 +218,18 @@ def configure_data_request(
     var_names = list(data_var_specs.keys())
     long_names = [data_var_specs[key]["long_name"] for key in var_names]
 
-    for year, month in months_list:
+    for year, month_str in months_list:
         request = construct_request(
             coordinates,
             year,
-            month,
+            month_str,
             long_names,  # requested variables
         )
         file_name = ut.construct_weather_data_file_name(
             coordinates,
             folder="weatherDataRaw",
             data_format=data_format,
-            time_specifier=f"{year}-{month:02}",
+            time_specifier=f"{year}_{month_str}",
             data_specifier="hourly",
         )
         data_requests.append((request, file_name))
@@ -234,7 +242,7 @@ def download_weather_data(data_requests):
     Download weather data from CDS API.
 
     Parameters:
-        data_requests (list): List of data requests and corresponding file names.
+        list: List of data requests and corresponding file names.
     """
     # Fragments for daily requests in commits before 2023-11-08.
     # Asynchronous option? https://docs.python.org/3/library/asyncio.html
@@ -262,8 +270,9 @@ def weather_data_to_txt_file(
 
     Parameters:
         data_var_specs (dict): Dictionary of variable specifications.
-        coordinates (dict): Coordinates dictionary with 'lat' and 'lon' keys.
-        months_list (list): List of (year, month) pairs.
+        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+        months_list (list): List of (year, month_str) pairs, 'month_str' can be one (e.g. '03')
+            or a range of months (e.g. '01-04')..
         final_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
         data_format (str): Data format (default is 'netcdf', no other option currently).
         data_source (str): URL used in data requests (default is 'https://cds.climate.copernicus.eu/api').
@@ -274,34 +283,34 @@ def weather_data_to_txt_file(
     # PET calculation by FAO-56 Penman-Monteith equation in commits before 2024-10.
 
     col_names = [entries["col_name_hourly"] for entries in data_var_specs.values()]
-    df_hourly = pd.DataFrame(columns=["Valid time", "Local time"] + col_names)
+    data_hourly = pd.DataFrame(columns=["Valid time", "Local time"] + col_names)
     var_names = list(data_var_specs.keys())
     data_query_protocol = []
     tz_offset = ut.get_time_zone(coordinates, return_as_offset=True)
     tz_label = ut.format_offset(tz_offset.seconds, add_utc=False)
 
-    for year, month in months_list:
+    for year, month_str in months_list:
         file_name = ut.construct_weather_data_file_name(
             coordinates,
             folder="weatherDataRaw",
             data_format=data_format,
-            time_specifier=f"{year}-{month:02}",
+            time_specifier=f"{year}_{month_str}",
             data_specifier="hourly",
         )
 
         # Open netCDF4 file and extract variables
-        ds = netCDF4.Dataset(file_name)
-        history = getattr(ds, "history")
+        data_raw = netCDF4.Dataset(file_name)
+        history = getattr(data_raw, "history")
         time_stamp, extra_info = history.split(" ", 1)
         data_query_protocol.append(
-            [year, month, data_source, time_stamp + "+00:00", extra_info]
+            [year, month_str, data_source, time_stamp + "+00:00", extra_info]
         )
 
         # Init data frame with time data
-        valid_time = ds.variables["valid_time"]
+        valid_time = data_raw.variables["valid_time"]
         valid_time = num2date(valid_time[:], valid_time.units)  # cds times are UTC
         local_time = valid_time + tz_offset  # local time, but w/o daylight saving time
-        df_temp = pd.DataFrame(
+        data_temp = pd.DataFrame(
             {
                 "Valid time": [
                     t.isoformat(timespec="minutes") + "+00:00" for t in valid_time
@@ -312,39 +321,38 @@ def weather_data_to_txt_file(
             }
         )
 
-        # Collect and convert hourly data from ds
+        # Collect and convert hourly data from data_raw
         for var_name in var_names:
-            data_temp = cwd.convert_units(
-                ds.variables[data_var_specs[var_name]["short_name"]][:].flatten(),
+            data_var = cwd.convert_units(
+                data_raw.variables[data_var_specs[var_name]["short_name"]][:].flatten(),
                 data_var_specs[var_name]["unit_conversion"],
             )
-            df_temp[data_var_specs[var_name]["col_name_hourly"]] = data_temp
+            data_temp[data_var_specs[var_name]["col_name_hourly"]] = data_var
 
-        if not df_hourly.empty:
-            df_hourly = pd.concat([df_hourly, df_temp], ignore_index=True)
+        if not data_hourly.empty:
+            data_hourly = pd.concat([data_hourly, data_temp], ignore_index=True)
         else:
-            df_hourly = df_temp
+            data_hourly = data_temp
 
-    # Remove all data before 00:00 local time at first day (no time gaps in data checked in construct_months_list)
+    # Remove all data before 00:00 local time at first day (no time gaps in data was checked in construct_months_list)
     tz_offset_hours = int(tz_offset.seconds / 3600)
-    len_extra_month_start = ut.get_days_in_month(months_list[0][0], months_list[0][1])
-    df_hourly = df_hourly.iloc[len_extra_month_start * 24 - tz_offset_hours :]
+    len_month_start = ut.get_days_in_month(months_list[0][0], int(months_list[0][1]))
+    data_hourly = data_hourly.iloc[len_month_start * 24 - tz_offset_hours :]
 
-    # Remove all data after 00:00 local time at last day + 1 (no time gaps in data checked in construct_months_list)
-    len_extra_month_end = ut.get_days_in_month(months_list[-1][0], months_list[-1][1])
-    df_hourly = df_hourly.iloc[: -len_extra_month_end * 24 + 1 - tz_offset_hours]
+    # Remove all data after 00:00 local time at last day + 1 (no time gaps in data was checked in construct_months_list)
+    len_month_end = ut.get_days_in_month(months_list[-1][0], int(months_list[-1][1]))
+    data_hourly = data_hourly.iloc[: -len_month_end * 24 + 1 - tz_offset_hours]
 
     # Save DataFrame to .txt file, create data directory if missing
-    len_last_month = ut.get_days_in_month(months_list[-2][0], months_list[-2][1])
-    time_range_str = f"{months_list[1][0]}-{months_list[1][1]:02}-01_{months_list[-2][0]}-{months_list[-2][1]:02}-{len_last_month}"
+    time_range = f"{data_hourly["Local time"].values[0].split("T")[0]}_{data_hourly["Local time"].values[-2].split("T")[0]}"
     file_name = ut.construct_weather_data_file_name(
         coordinates,
         folder="weatherDataPrepared",
         data_format="txt",
-        time_specifier=time_range_str,
+        time_specifier=time_range,
         data_specifier="hourly",
     )
-    df_hourly.to_csv(
+    data_hourly.to_csv(
         file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"
     )
     print("Text file with hourly resolution prepared.")
@@ -363,5 +371,8 @@ def weather_data_to_txt_file(
     # Convert hourly to daily data if needed (e.g. for grassland model)
     if final_resolution == "daily":
         cwd.hourly_to_daily(
-            df_hourly, data_var_specs, coordinates, time_range_str, tz_offset_hours
+            data_hourly,
+            data_var_specs,
+            coordinates,
+            tz_offset_hours=tz_offset_hours,
         )

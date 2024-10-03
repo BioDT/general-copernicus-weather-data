@@ -27,7 +27,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytz
-from suntime import Sun, SunTimeException
+from astral import LocationInfo
+from astral.sun import sun
 from timezonefinder import TimezoneFinder as tzf
 
 
@@ -94,7 +95,7 @@ def get_days_in_month(year, month):
     # Check if the provided month is valid
     if month not in days_in_month:
         raise ValueError(
-            "Invalid month value. Please provide a month between 1 and 12."
+            "Invalid month value. Please provide a month between 1 and 12!"
         )
 
     return days_in_month[month]
@@ -113,6 +114,31 @@ def generate_day_values(year, month):
     """
 
     return [f"{i:02}" for i in range(1, get_days_in_month(year, month) + 1)]
+
+
+def format_month_str(month_str):
+    """
+    Generate month values as strings for a given 'month_str'.
+
+    Parameters:
+        month_str (str): String to specify the month(s), can be one (e.g. '03')
+            or a range of months (e.g. '01-04').
+
+    Returns:
+        list of str: List of month(s) as strings.
+    """
+    month_items = month_str.split("-")
+
+    if len(month_items) == 1:
+        month_formatted = month_items
+    elif len(month_items) == 2:
+        month_formatted = [
+            f"{m:02}" for m in range(int(month_items[0]), int(month_items[1]) + 1)
+        ]
+    else:
+        raise ValueError(f"Wrong format of 'month_str' ({month_str})!")
+
+    return month_formatted
 
 
 def format_offset(offset_seconds, add_utc=True):
@@ -179,18 +205,20 @@ def get_day_length(coordinates, date_iterable):
     Returns:
         list: List of day lengths in hours for the specified dates.
     """
-    sun = Sun(coordinates["lat"], coordinates["lon"])
+    time_zone = get_time_zone(coordinates)
+    location = LocationInfo(
+        "name", "region", time_zone.zone, coordinates["lat"], coordinates["lon"]
+    )
     day_lengths = []
 
     for date_str in date_iterable:
         try:
             year, month, day = map(int, date_str.split("-"))
             day_date = date(year, month, day)
-            sunrise = sun.get_local_sunrise_time(day_date)
-            sunset = sun.get_local_sunset_time(day_date)
-            day_length = sunset - sunrise
+            sun_local = sun(location.observer, date=day_date, tzinfo=time_zone)
+            day_length = sun_local["sunset"] - sun_local["sunrise"]
             day_lengths.append(day_length.total_seconds() / 3600)
-        except SunTimeException as e:
+        except Exception as e:
             # Error handling (no sunset or sunrise on given location)
             print(f"Error: {e}.")
             day_lengths.append(0)

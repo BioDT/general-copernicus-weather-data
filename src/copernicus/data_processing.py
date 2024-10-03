@@ -2,7 +2,7 @@
 Module Name: data_processing.py
 Description: Building block for obtaining selected weather data at given location
              (0.1° x 0.1° spatial resolution) for desired time periods, at hourly
-             resolution, e.g. from Copernicus ERA5-Land dataset.
+             resolution, from Copernicus ERA5-Land dataset.
 
 Copyright (C) 2024
 - Thomas Banitz, Franziska Taubert, Helmholtz Centre for Environmental Research GmbH - UFZ, Leipzig, Germany
@@ -50,6 +50,7 @@ def data_processing(
             "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
         )
 
+    # Prepare requests
     months_list = gwd.construct_months_list(years, months)
     data_var_specs = gwd.get_var_specs()
     data_requests = gwd.configure_data_request(
@@ -57,11 +58,15 @@ def data_processing(
         coordinates,
         months_list,
     )
-    cop_url = gwd.download_weather_data(data_requests)
+
+    # Download raw data
+    cds_api_url = gwd.download_weather_data(data_requests)
+
+    # Process raw data to final files
     gwd.weather_data_to_txt_file(
         data_var_specs,
         coordinates,
         months_list,
         final_resolution=final_resolution,
-        data_source=cop_url,
+        data_source=cds_api_url,
     )

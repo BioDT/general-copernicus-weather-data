@@ -214,7 +214,7 @@ def daily_mean_daylight(values_hourly, date_iterable, coordinates):
     Parameters:
         values_hourly (numpy.ndarray): Hourly data.
         date_iterable (list or numpy.ndarray): Iterable of date strings (e.g., 'YYYY-MM-DD') corresponding to each day.
-        coordinates (dict): A dictionary with 'lat' and 'lon' keys for the location.
+        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
 
     Returns:
         numpy.ndarray: Daily mean temperature values for daylight hours only.
@@ -270,21 +270,30 @@ def daily_mean_daylight(values_hourly, date_iterable, coordinates):
     return np.array(values_daylight)
 
 
-def hourly_to_daily(
-    df_hourly, data_var_specs, coordinates, time_range_str, tz_offset_hours
-):
+def hourly_to_daily(data_hourly, data_var_specs, coordinates, *, tz_offset_hours=0):
+    """
+    Convert hourly weather data to daily, considering time zone shifts (full hours only).
+
+    Parameters:
+        data_hourly (dataframe): Hourly data.
+        data_var_specs (dict): Dictionary of variable specifications.
+        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+        tz_offset_hours (int): Offset of local time zone to UTC in hours (default is 0).
+    """
     # Dates (omit last entry from last Day + 1 at 00:00)
-    local_date = df_hourly["Local time"][:-24:24].str.split("T").str[0].values
+    local_date = data_hourly["Local time"][:-24:24].str.split("T").str[0].values
 
     # Day lengths
     day_length = ut.get_day_length(coordinates, local_date)
 
     # Precipitation (omit first entry from first Day at 00:00)
-    precipitation = df_hourly[data_var_specs["precipitation"]["col_name_hourly"]].values
+    precipitation = data_hourly[
+        data_var_specs["precipitation"]["col_name_hourly"]
+    ].values
     precipitation = daily_accumulated(precipitation, tz_offset_hours)
 
     # Temperature (hourly still needed for PET calculation, daily means considering 00:00 and 24:00 values)
-    temperature_hourly = df_hourly[
+    temperature_hourly = data_hourly[
         data_var_specs["temperature"]["col_name_hourly"]
     ].values
     temperature = daily_mean_00_24(temperature_hourly)
@@ -292,10 +301,9 @@ def hourly_to_daily(
         temperature_hourly, local_date, coordinates
     )
 
-    # SSRD (omit first entry from first Day at 00:00)
-    ssrd = df_hourly[data_var_specs["solar_radiation_down"]["col_name_hourly"]].values
+    # SSRD (omit first entry from first Day at 00:00), convert net radiation to PAR
+    ssrd = data_hourly[data_var_specs["solar_radiation_down"]["col_name_hourly"]].values
     ssrd = daily_accumulated(ssrd, tz_offset_hours)
-    # Convert net radiation to PAR
     ssrd_par = par_from_net_radiation(ssrd)
 
     # PET from Thornthwaite equation
@@ -308,7 +316,7 @@ def hourly_to_daily(
     )
 
     # Write dataframe with daily values
-    df_daily = pd.DataFrame(
+    data_daily = pd.DataFrame(
         {
             "Date": local_date,
             data_var_specs["precipitation"]["col_name_daily"]: precipitation,
@@ -321,14 +329,17 @@ def hourly_to_daily(
     )
 
     # Save DataFrame to .txt file
+    time_range = f"{local_date[0]}_{local_date[-1]}"
     file_name = ut.construct_weather_data_file_name(
         coordinates,
         folder="weatherDataPrepared",
         data_format="txt",
-        time_specifier=time_range_str,
+        time_specifier=time_range,
         data_specifier="weather",
     )
-    df_daily.to_csv(file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan")
+    data_daily.to_csv(
+        file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"
+    )
     print("Text file with daily resolution prepared.")
 
 
