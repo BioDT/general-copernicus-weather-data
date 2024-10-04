@@ -33,6 +33,7 @@ Sources:
 """
 
 import statistics as stats
+import warnings
 from datetime import date, datetime, timedelta
 
 import numpy as np
@@ -610,12 +611,11 @@ def get_pet_thornthwaite(
         days_expected = 366 if ut.is_leap_year(year) else 365
 
         if days_found != days_expected:
-            print(
-                f"Warning: Length of daily data for {year} ({days_found}) differs "
-                f"from days in that year ({days_expected})."
-            )
-            print(
-                "PET by Thornthwaite equation not calculated as it requires data for full years!"
+            warnings.warn(
+                f"Length of daily data for {year} ({days_found}) differs "
+                f"from days in that year ({days_expected}). "
+                "PET by Thornthwaite equation not calculated as it requires data for full years!",
+                UserWarning,
             )
 
             return pet_thorn

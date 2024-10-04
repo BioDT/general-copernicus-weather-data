@@ -163,7 +163,7 @@ def construct_request(
         month_str (str): Month(s) for the data request, can be one (e.g. '03')
             or range of months (e.g. '01-04').
         variables (list): List of variables to request.
-        data_format (str): Data format (default if 'netcdf').
+        data_format (str): Data format (default is 'netcdf').
 
     Returns:
         dict: Dictionary representing the data request parameters.
@@ -286,8 +286,11 @@ def weather_data_to_txt_file(
     data_hourly = pd.DataFrame(columns=["Valid time", "Local time"] + col_names)
     var_names = list(data_var_specs.keys())
     data_query_protocol = []
-    tz_offset = ut.get_time_zone(coordinates, return_as_offset=True)
-    tz_label = ut.format_offset(tz_offset.seconds, add_utc=False)
+    years_to_check = np.unique([item[0] for item in months_list])
+    tz_offset = ut.get_time_zone(
+        coordinates, return_as_offset=True, years=years_to_check
+    )
+    tz_label = ut.format_offset(tz_offset, add_utc=False)
 
     for year, month_str in months_list:
         file_name = ut.construct_weather_data_file_name(
@@ -335,7 +338,7 @@ def weather_data_to_txt_file(
             data_hourly = data_temp
 
     # Remove all data before 00:00 local time at first day (no time gaps in data was checked in construct_months_list)
-    tz_offset_hours = int(tz_offset.seconds / 3600)
+    tz_offset_hours = int(tz_offset.total_seconds() / 3600)
     len_month_start = ut.get_days_in_month(months_list[0][0], int(months_list[0][1]))
     data_hourly = data_hourly.iloc[len_month_start * 24 - tz_offset_hours :]
 
@@ -344,7 +347,10 @@ def weather_data_to_txt_file(
     data_hourly = data_hourly.iloc[: -len_month_end * 24 + 1 - tz_offset_hours]
 
     # Save DataFrame to .txt file, create data directory if missing
-    time_range = f"{data_hourly["Local time"].values[0].split("T")[0]}_{data_hourly["Local time"].values[-2].split("T")[0]}"
+    time_range = (
+        f"{data_hourly["Local time"].values[0].split("T")[0]}"
+        f"_{data_hourly["Local time"].values[-2].split("T")[0]}"
+    )
     file_name = ut.construct_weather_data_file_name(
         coordinates,
         folder="weatherDataPrepared",

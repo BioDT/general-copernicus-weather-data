@@ -21,6 +21,7 @@ Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Acce
 """
 
 import csv
+import warnings
 from datetime import date, datetime
 from pathlib import Path
 
@@ -141,21 +142,21 @@ def format_month_str(month_str):
     return month_formatted
 
 
-def format_offset(offset_seconds, add_utc=True):
+def format_offset(offset, add_utc=True):
     """
     Format a time zone offset in hours and minutes.
 
     Parameters:
-        offset_seconds (int): Time zone offset in seconds.
+        offset (pytz.timezone.utcoffset): Time zone offset to UTC.
         add_utc (bool): Inlude 'UTC' in result string (default is True).
 
     Returns:
         str: Formatted time zone offset string (e.g. 'UTC+02:00').
     """
-    hours, remainder = divmod(abs(offset_seconds), 3600)
+    hours, remainder = divmod(abs(offset.total_seconds()), 3600)
     minutes = remainder // 60
-    sign = "+" if offset_seconds >= 0 else "-"
-    offset_str = f"{sign}{hours:02}:{minutes:02}"
+    sign = "+" if offset.total_seconds() >= 0 else "-"
+    offset_str = f"{sign}{int(hours):02}:{int(minutes):02}"
 
     if add_utc:
         return "UTC" + offset_str
@@ -163,18 +164,19 @@ def format_offset(offset_seconds, add_utc=True):
     return offset_str
 
 
-def get_time_zone(coordinates, *, return_as_offset=False):
+def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
     """
     Get the time zone for a given set of coordinates.
 
     Parameters:
         coordinates (dict): Coordinates with 'lat' and 'lon'.
-        return_as_string (bool): Return time zone as formatted string (e.g. 'UTC+02:00', default is False).
+        return_as_string (bool): Return time zone as offset to UTC (default is False).
+        years (iterable): Years for obtaining time zone offset to UTC (default is [2021]).
 
     Returns:
         pytz.timezone or str:
             time zone as pytz.timezone object (if return_as_string is False).
-            time zone as formatted string (if return_As_string is True).
+            time zone as pytz.timezone.utcoffset (if return_as_offset is True).
     """
     tz_loc = tzf().timezone_at(lat=coordinates["lat"], lng=coordinates["lon"])
 
@@ -182,10 +184,20 @@ def get_time_zone(coordinates, *, return_as_offset=False):
         tz = pytz.timezone(tz_loc)
 
         if return_as_offset:
-            ref_date = datetime(
-                2021, 1, 1
-            )  # just any winter day to avoid daylight saving time
-            offset = tz.utcoffset(ref_date)
+            # Offest for last year, use any winter day to avoid daylight saving time
+            offset = tz.utcoffset(datetime(years[-1], 1, 1))
+
+            # Check if offset differs for other years
+            for year in years[:-1]:
+                offset_check = tz.utcoffset(datetime(year, 1, 1))
+
+                if offset != offset_check:
+                    warnings.warn(
+                        f"Timezone offset varies among years! Using final year ({years[-1]}, offset: {str(offset)}).",
+                        UserWarning,
+                    )
+
+                    return offset
 
             return offset
 
