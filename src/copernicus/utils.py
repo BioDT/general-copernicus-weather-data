@@ -27,10 +27,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytz
 from astral import LocationInfo
 from astral.sun import sun
 from timezonefinder import TimezoneFinder as tzf
+from zoneinfo import ZoneInfo
 
 
 def is_dict_of_2_floats(variable):
@@ -147,7 +147,7 @@ def format_offset(offset, add_utc=True):
     Format a time zone offset in hours and minutes.
 
     Parameters:
-        offset (pytz.timezone.utcoffset): Time zone offset to UTC.
+        offset (timezone.utcoffset): Time zone offset to UTC.
         add_utc (bool): Inlude 'UTC' in result string (default is True).
 
     Returns:
@@ -170,18 +170,18 @@ def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
 
     Parameters:
         coordinates (dict): Coordinates with 'lat' and 'lon'.
-        return_as_string (bool): Return time zone as offset to UTC (default is False).
+        return_as_offset (bool): Return time zone as offset to UTC (default is False).
         years (iterable): Years for obtaining time zone offset to UTC (default is [2021]).
 
     Returns:
-        pytz.timezone or str:
-            time zone as pytz.timezone object (if return_as_string is False).
-            time zone as pytz.timezone.utcoffset (if return_as_offset is True).
+        zoneinfo.ZoneInfo or zoneinfo.ZoneInfo.utcoffset:
+            time zone as zoneinfo.ZoneInfo object (if return_as_offset is False).
+            time zone as zoneinfo.ZoneInfo.utcoffset (if return_as_offset is True).
     """
     tz_loc = tzf().timezone_at(lat=coordinates["lat"], lng=coordinates["lon"])
 
     if tz_loc:
-        tz = pytz.timezone(tz_loc)
+        tz = ZoneInfo(tz_loc)
 
         if return_as_offset:
             # Offest for last year, use any winter day to avoid daylight saving time
@@ -193,7 +193,7 @@ def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
 
                 if offset != offset_check:
                     warnings.warn(
-                        f"Timezone offset varies among years! Using final year ({years[-1]}, offset: {str(offset)}).",
+                        f"Timezone offset varies among years! Using final year ({years[-1]}, offset: {format_offset(offset)}).",
                         UserWarning,
                     )
 

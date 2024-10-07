@@ -4,6 +4,5 @@ netCDF4>=1.6.0
 numpy>=1.19.0
 openpyxl==3.1.2
 pandas>=1.5.0
-pytz>=2023.3.post1
 timezonefinder>=6.2.0
 
