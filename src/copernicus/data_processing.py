@@ -31,6 +31,7 @@ def data_processing(
     coordinates,
     *,
     final_resolution="daily",
+    target_folder=None,
 ):
     """
     Download data from CDS API. Convert to .txt files.
@@ -40,6 +41,7 @@ def data_processing(
         months (list of int): Months list.
         coordinates (list of dict): List of dictionaries with 'lat' and 'lon' keys.
         final_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
+        target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
     """
     if "lat" in coordinates and "lon" in coordinates:
         print(
@@ -53,11 +55,7 @@ def data_processing(
     # Prepare requests
     months_list = gwd.construct_months_list(years, months)
     data_var_specs = gwd.get_var_specs()
-    data_requests = gwd.configure_data_request(
-        data_var_specs,
-        coordinates,
-        months_list,
-    )
+    data_requests = gwd.configure_data_request(data_var_specs, coordinates, months_list)
 
     # Download raw data
     cds_api_url = gwd.download_weather_data(data_requests)
@@ -68,5 +66,6 @@ def data_processing(
         coordinates,
         months_list,
         final_resolution=final_resolution,
+        target_folder=target_folder,
         data_source=cds_api_url,
     )

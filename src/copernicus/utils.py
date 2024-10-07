@@ -219,7 +219,7 @@ def get_day_length(coordinates, date_iterable):
     """
     time_zone = get_time_zone(coordinates)
     location = LocationInfo(
-        "name", "region", time_zone.zone, coordinates["lat"], coordinates["lon"]
+        "name", "region", time_zone.key, coordinates["lat"], coordinates["lon"]
     )
     day_lengths = []
 
@@ -326,11 +326,11 @@ def construct_weather_data_file_name(
     data_specifier="noInfo",
 ):
     """
-    Construct data file name and create folder if missing.
+    Construct weather data file name and create folder if missing.
 
     Parameters:
         coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
-        folder (str or Path): Folder where the data file will be stored (default is 'weatherDataFolder').
+        folder (str or Path): Folder of weather data file (default is 'weatherDataFolder').
         data_format (str): Data format ('netcdf', 'grib' or 'txt', default is 'txt').
         time_specifier (str): Time range specifier (e.g. '1995-03', default is 'timeRange')
         data_specifier (str): Data specifier (e.g. 'hourly', 'weather', default is 'noInfo').

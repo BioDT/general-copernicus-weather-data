@@ -262,6 +262,7 @@ def weather_data_to_txt_file(
     months_list,
     *,
     final_resolution="daily",
+    target_folder="weatherDataPrepared",
     data_format="netcdf",
     data_source="https://cds.climate.copernicus.eu/api",
 ):
@@ -273,7 +274,8 @@ def weather_data_to_txt_file(
         coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
         months_list (list): List of (year, month_str) pairs, 'month_str' can be one (e.g. '03')
             or a range of months (e.g. '01-04')..
-        final_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
+        final_resolution (str): Resolution for final .txt file ('hourly' or 'daily', default is 'daily').
+        target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
         data_format (str): Data format (default is 'netcdf', no other option currently).
         data_source (str): URL used in data requests (default is 'https://cds.climate.copernicus.eu/api').
     """
@@ -353,7 +355,7 @@ def weather_data_to_txt_file(
     )
     file_name = ut.construct_weather_data_file_name(
         coordinates,
-        folder="weatherDataPrepared",
+        folder=target_folder,
         data_format="txt",
         time_specifier=time_range,
         data_specifier="hourly",
@@ -381,4 +383,5 @@ def weather_data_to_txt_file(
             data_var_specs,
             coordinates,
             tz_offset_hours=tz_offset_hours,
+            target_folder=target_folder,
         )

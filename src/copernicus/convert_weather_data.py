@@ -222,7 +222,7 @@ def daily_mean_daylight(values_hourly, date_iterable, coordinates):
     """
     time_zone = ut.get_time_zone(coordinates)
     location = LocationInfo(
-        "name", "region", time_zone.zone, coordinates["lat"], coordinates["lon"]
+        "name", "region", time_zone.key, coordinates["lat"], coordinates["lon"]
     )
     values_daylight = []
 
@@ -240,12 +240,12 @@ def daily_mean_daylight(values_hourly, date_iterable, coordinates):
             sunrise_plus_30 = (
                 sun_local["sunrise"]
                 + timedelta(minutes=30)
-                - sun_local["sunrise"].tzinfo._dst
+                - time_zone.dst(sun_local["sunrise"])
             )
             sunset_plus_30 = (
                 sun_local["sunset"]
                 + timedelta(minutes=30)
-                - sun_local["sunset"].tzinfo._dst
+                - time_zone.dst(sun_local["sunset"])
             )
 
             # Determine indices of hours not fully considered
@@ -271,7 +271,14 @@ def daily_mean_daylight(values_hourly, date_iterable, coordinates):
     return np.array(values_daylight)
 
 
-def hourly_to_daily(data_hourly, data_var_specs, coordinates, *, tz_offset_hours=0):
+def hourly_to_daily(
+    data_hourly,
+    data_var_specs,
+    coordinates,
+    *,
+    tz_offset_hours=0,
+    target_folder="weatherDataPrepared",
+):
     """
     Convert hourly weather data to daily, considering time zone shifts (full hours only).
 
@@ -280,6 +287,7 @@ def hourly_to_daily(data_hourly, data_var_specs, coordinates, *, tz_offset_hours
         data_var_specs (dict): Dictionary of variable specifications.
         coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
         tz_offset_hours (int): Offset of local time zone to UTC in hours (default is 0).
+        target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
     """
     # Dates (omit last entry from last Day + 1 at 00:00)
     local_date = data_hourly["Local time"][:-24:24].str.split("T").str[0].values
@@ -333,7 +341,7 @@ def hourly_to_daily(data_hourly, data_var_specs, coordinates, *, tz_offset_hours
     time_range = f"{local_date[0]}_{local_date[-1]}"
     file_name = ut.construct_weather_data_file_name(
         coordinates,
-        folder="weatherDataPrepared",
+        folder=target_folder,
         data_format="txt",
         time_specifier=time_range,
         data_specifier="weather",
