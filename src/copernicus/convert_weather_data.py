@@ -625,7 +625,6 @@ def get_pet_thornthwaite(
                 "PET by Thornthwaite equation not calculated as it requires data for full years!",
                 UserWarning,
             )
-
             return pet_thorn
 
     # Prepare variables for PET calculation

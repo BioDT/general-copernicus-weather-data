@@ -47,7 +47,9 @@ def is_dict_of_2_floats(variable):
         for key, value in variable.items():
             if not isinstance(value, float):
                 return False
+
         return True
+
     return False
 
 
@@ -196,7 +198,6 @@ def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
                         f"Timezone offset varies among years! Using final year ({years[-1]}, offset: {format_offset(offset)}).",
                         UserWarning,
                     )
-
                     return offset
 
             return offset
@@ -285,7 +286,6 @@ def list_to_file(list_to_write, column_names, file_name):
         print(
             f"Error: All tuples in the list must have {len(column_names)} entries (same as column_names)."
         )
-
         return
 
     file_path = Path(file_name)

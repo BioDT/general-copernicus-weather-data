@@ -1,6 +1,8 @@
 """
 Module Name: get_weather_data.py
-Description: Functions for downloading and processing selected weather data.
+Description: Functions for downloading and processing selected weather data at given location
+             (0.1° x 0.1° spatial resolution) for desired time periods, at hourly
+             resolution, from Copernicus ERA5-Land dataset.
 
 Copyright (C) 2024
 - Thomas Banitz, Franziska Taubert, Helmholtz Centre for Environmental Research GmbH - UFZ, Leipzig, Germany
@@ -18,6 +20,23 @@ Programme under grant agreement No 101057437 (BioDT project, https://doi.org/10.
 The authors acknowledge the EuroHPC Joint Undertaking and CSC – IT Center for Science Ltd., Finland
 for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CSC – IT Center for
 Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
+
+Data source:
+    ERA5-Land hourly data from 1950 to present (https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land)
+    - Muñoz Sabater, J. (2019):
+      ERA5-Land hourly data from 1950 to present.
+      Copernicus Climate Change Service (C3S) Climate Data Store (CDS). https://doi.org/10.24381/cds.e2161bac
+    - ERA5-Land online documentation: https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation
+    - Full Licence to Use Copernicus Products in 'README.md'
+    - Access via Climate Data Store (CDS) Application Program Interface (API):
+        - URL: https://cds.climate.copernicus.eu/api
+        - Documentation: https://cds.climate.copernicus.eu/how-to-api
+        - Python package 'cdsapi': https://pypi.org/project/cdsapi/
+        - access to the CDS API requires:
+            - an account
+            - agreement to the Terms of Use of the "ERA5-Land hourly data from 1950 to present" data set
+            - a CDS API personal access token (usually put in a '$HOME/.cdsapirc' file)
+            - see detailed instructions at: https://cds.climate.copernicus.eu/how-to-api
 """
 
 from pathlib import Path
