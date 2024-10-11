@@ -37,7 +37,7 @@ Data source:
         - Documentation: https://cds.climate.copernicus.eu/how-to-api
         - Python package 'cdsapi': https://pypi.org/project/cdsapi/
         - Access to the CDS API requires:
-            - An account
+            - An ECMWF account (https://www.ecmwf.int/)
             - Agreement to the Terms of Use of the "ERA5-Land hourly data from 1950 to present" data set
             - A CDS API personal access token (usually put in a '$HOME/.cdsapirc' file)
             - See detailed instructions at: https://cds.climate.copernicus.eu/how-to-api
