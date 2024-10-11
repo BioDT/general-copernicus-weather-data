@@ -2,9 +2,12 @@
 Module Name: utils.py
 Description: Utility functions for copernicus building block.
 
+Developed in the BioDT project by Thomas Banitz (UFZ) with contributions by Franziska Taubert (UFZ)
+and Tuomas Rossi (CSC).
+
 Copyright (C) 2024
-- Thomas Banitz, Franziska Taubert, Helmholtz Centre for Environmental Research GmbH - UFZ, Leipzig, Germany
-- Tuomas Rossi, CSC – IT Center for Science Ltd., Espoo, Finland
+- Helmholtz Centre for Environmental Research GmbH - UFZ, Germany
+- CSC - IT Center for Science Ltd., Finland
 
 Licensed under the EUPL, Version 1.2 or - as soon they will be approved
 by the European Commission - subsequent versions of the EUPL (the "Licence").
@@ -15,8 +18,8 @@ https://joinup.ec.europa.eu/software/page/eupl
 
 This project has received funding from the European Union's Horizon Europe Research and Innovation
 Programme under grant agreement No 101057437 (BioDT project, https://doi.org/10.3030/101057437).
-The authors acknowledge the EuroHPC Joint Undertaking and CSC – IT Center for Science Ltd., Finland
-for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CSC – IT Center for
+The authors acknowledge the EuroHPC Joint Undertaking and CSC - IT Center for Science Ltd., Finland
+for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CSC - IT Center for
 Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
 """
 
