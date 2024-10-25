@@ -619,7 +619,7 @@ def get_pet_thornthwaite(
     # Check if all days from a year are present in the data (as per total number), otherwise return 'nan'
     for year in unique_years:
         days_found = np.sum(years == year)
-        days_expected = 366 if ut.is_leap_year(year) else 365
+        days_expected = ut.get_days_in_year(year)
 
         if days_found != days_expected:
             warnings.warn(
