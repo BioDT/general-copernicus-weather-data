@@ -36,26 +36,6 @@ from timezonefinder import TimezoneFinder as tzf
 from zoneinfo import ZoneInfo
 
 
-def is_dict_of_2_floats(variable):
-    """
-    Check if 'variable' is a dictionary of two float values.
-
-    Parameters:
-        variable (dict): Input dictionary to check.
-
-    Returns:
-        bool: True if 'variable' is a valid dictionary, False otherwise.
-    """
-    if isinstance(variable, dict) and len(variable) == 2:
-        for key, value in variable.items():
-            if not isinstance(value, float):
-                return False
-
-        return True
-
-    return False
-
-
 def is_leap_year(year):
     """
     Check if a given year is a leap year.
@@ -265,7 +245,7 @@ def get_file_suffix(data_format):
 
 def list_to_file(list_to_write, file_name, *, column_names=None):
     """
-    Write a list of tuples to a text file (tab-separated) or csv file (;-separated) or an Excel file.
+    Write a list to a text file (tab-separated) or csv file (;-separated) or an Excel file.
 
     Parameters:
         list_to_write (list): List of strings or tuples or dictionaries to be written to the file.
