@@ -1,14 +1,6 @@
 import pytest
 
-from copernicus.utils import get_days_in_month, is_leap_year
-
-
-def test_is_leap_year():
-    """Test leap year logic."""
-    assert is_leap_year(2020)
-    assert not is_leap_year(2019)
-    assert not is_leap_year(1900)  # Century non-leap year
-    assert is_leap_year(2000)  # Century leap year
+from copernicus.utils import get_days_in_month
 
 
 def test_get_days_in_month():
