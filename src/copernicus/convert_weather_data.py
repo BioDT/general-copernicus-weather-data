@@ -625,8 +625,7 @@ def get_pet_thornthwaite(
             warnings.warn(
                 f"Length of daily data for {year} ({days_found}) differs "
                 f"from days in that year ({days_expected}). "
-                "PET by Thornthwaite equation not calculated as it requires data for full years!",
-                UserWarning,
+                "PET by Thornthwaite equation not calculated as it requires data for full years!"
             )
             return pet_thorn
 

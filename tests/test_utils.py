@@ -5,10 +5,10 @@ import copernicus.utils as ut
 
 def test_is_leap_year():
     """Test leap year logic."""
-    assert ut.is_leap_year(2020) is True
-    assert ut.is_leap_year(2019) is False
-    assert ut.is_leap_year(1900) is False  # Century non-leap year
-    assert ut.is_leap_year(2000) is True  # Century leap year
+    assert ut.is_leap_year(2020)
+    assert not ut.is_leap_year(2019)
+    assert not ut.is_leap_year(1900)  # Century non-leap year
+    assert ut.is_leap_year(2000)  # Century leap year
 
 
 def test_get_days_in_month():
