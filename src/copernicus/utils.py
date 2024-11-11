@@ -23,6 +23,7 @@ for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CS
 Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
 """
 
+import calendar
 import csv
 import warnings
 from datetime import date, datetime
@@ -36,19 +37,17 @@ from timezonefinder import TimezoneFinder as tzf
 from zoneinfo import ZoneInfo
 
 
-def is_leap_year(year):
+def get_days_in_year(year):
     """
-    Check if a given year is a leap year.
+    Get the number of days in a year, considering leap years.
 
     Parameters:
         year (int): The year.
 
     Returns:
-        bool: True if the year is a leap year, False otherwise.
+        int: Number of days in the specified year.
     """
-    # A year is a leap year if it is divisible by 4,
-    # except for years that are divisible by 100 but not by 400
-    return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+    return 366 if calendar.isleap(year) else 365
 
 
 def get_days_in_month(year, month):
@@ -62,44 +61,7 @@ def get_days_in_month(year, month):
     Returns:
         int: Number of days in the specified month.
     """
-    # Define the number of days in each month, considering leap years
-    days_in_month = {
-        1: 31,  # January
-        2: 29 if is_leap_year(year) else 28,  # February
-        3: 31,  # March
-        4: 30,  # April
-        5: 31,  # May
-        6: 30,  # June
-        7: 31,  # July
-        8: 31,  # August
-        9: 30,  # September
-        10: 31,  # October
-        11: 30,  # November
-        12: 31,  # December
-    }
-
-    # Check if the provided month is valid
-    if month not in days_in_month:
-        raise ValueError(
-            "Invalid month value. Please provide a month between 1 and 12!"
-        )
-
-    return days_in_month[month]
-
-
-def generate_day_values(year, month):
-    """
-    Generate day value strings for a given year and month.
-
-    Parameters:
-        year (int): The year.
-        month (int): The month.
-
-    Returns:
-        list: List of day value strings.
-    """
-
-    return [f"{i:02}" for i in range(1, get_days_in_month(year, month) + 1)]
+    return calendar.monthrange(year, month)[1]
 
 
 def format_month_str(month_str):
