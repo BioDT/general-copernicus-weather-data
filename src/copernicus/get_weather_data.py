@@ -186,7 +186,8 @@ def construct_request(
         month_str (str): Month(s) for the data request, can be one (e.g. '03')
             or range of months (e.g. '01-04').
         variables (list): List of variables to request.
-        data_format (str): Data format (default is 'netcdf').
+        data_format (str): Data format (default is 'netcdf' (netCDF4), use 'netcdf_legacy' to get
+            output in the format of the CDS API before their update in 24-09).
 
     Returns:
         dict: Dictionary representing the data request parameters.
@@ -395,8 +396,8 @@ def weather_data_to_txt_file(
         )
         ut.list_to_file(
             data_query_protocol,
-            ["year", "month", "data_source", "time_stamp", "info"],
             file_name,
+            column_names=["year", "month", "data_source", "time_stamp", "info"],
         )
 
     # Convert hourly to daily data if needed (e.g. for grassland model)

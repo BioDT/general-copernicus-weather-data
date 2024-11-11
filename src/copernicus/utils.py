@@ -178,8 +178,7 @@ def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
 
                 if offset != offset_check:
                     warnings.warn(
-                        f"Timezone offset varies among years! Using final year ({years[-1]}, offset: {format_offset(offset)}).",
-                        UserWarning,
+                        f"Timezone offset varies among years! Using final year ({years[-1]}, offset: {format_offset(offset)})."
                     )
                     return offset
 
@@ -244,14 +243,14 @@ def get_file_suffix(data_format):
     return file_suffix
 
 
-def list_to_file(list_to_write, column_names, file_name):
+def list_to_file(list_to_write, file_name, *, column_names=None):
     """
     Write a list to a text file (tab-separated) or csv file (;-separated) or an Excel file.
 
     Parameters:
         list_to_write (list): List of strings or tuples or dictionaries to be written to the file.
-        column_names (list): List of column names (strings).
         file_name (str or Path): Path of output file (suffix determines file type).
+        column_names (list): List of column names (strings) to write as header line (default is None).
     """
     # Convert string entries to single item tuples
     list_to_write = [
@@ -265,7 +264,9 @@ def list_to_file(list_to_write, column_names, file_name):
             [entry.get(col, "") for col in column_names] for entry in list_to_write
         ]
     # Check if all tuples in list have the same length as the column_names list
-    elif not all(len(entry) == len(column_names) for entry in list_to_write):
+    elif column_names and not all(
+        len(entry) == len(column_names) for entry in list_to_write
+    ):
         print(
             f"Error: All tuples in the list must have {len(column_names)} entries (same as column_names)."
         )
@@ -278,14 +279,18 @@ def list_to_file(list_to_write, column_names, file_name):
     Path(file_name).parent.mkdir(parents=True, exist_ok=True)
 
     if file_suffix in [".txt", ".csv"]:
-        with open(file_path, "w", newline="", encoding="utf-8") as file:
+        with open(
+            file_path, "w", newline="", encoding="utf-8", errors="replace"
+        ) as file:
             writer = (
                 csv.writer(file, delimiter="\t")
                 if file_suffix == ".txt"
                 else csv.writer(file, delimiter=";")
             )
-            header = column_names
-            writer.writerow(header)  # header row
+
+            if column_names:
+                header = column_names
+                writer.writerow(header)  # Header row
 
             for entry in list_to_write:
                 writer.writerow(entry)
