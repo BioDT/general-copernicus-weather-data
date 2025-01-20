@@ -4,13 +4,13 @@ Building block for obtaining selected weather data at given location
    resolution, from Copernicus ERA5-Land dataset.
 
 ## Usage
-Call "data_processing(years, months, coordinates, *, final_resolution=final_resolution, target_folder=target_folder)
+Call "data_processing(years, months, coordinates, *, final_time_resolution=final_time_resolution, target_folder=target_folder)
 
 Parameters:
 - years (list of int): Years list.
 - months (list of int): Months list.
 - coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
-- final_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
+- final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
 - target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
 
 ## Developers

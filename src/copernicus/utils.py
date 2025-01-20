@@ -28,13 +28,13 @@ import csv
 import warnings
 from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 from astral import LocationInfo
 from astral.sun import sun
 from timezonefinder import TimezoneFinder as tzf
-from zoneinfo import ZoneInfo
 
 
 def get_days_in_year(year):
@@ -274,16 +274,20 @@ def construct_weather_data_file_name(
     data_format="txt",
     time_specifier="timeRange",
     data_specifier="noInfo",
+    precision=6,
 ):
     """
     Construct weather data file name and create folder if missing.
 
     Parameters:
-        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+        coordinates (dict): Dictionary either with 'lat_start', 'lat_end', 'lon_start', and 'lon_end' keys
+            for area ({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float})
+            or with 'lat' and 'lon' keys for a single point ({'lat': float, 'lon': float}).
         folder (str or Path): Folder of weather data file (default is 'weatherDataFolder').
         data_format (str): Data format ('netcdf', 'grib' or 'txt', default is 'txt').
         time_specifier (str): Time range specifier (e.g. '1995-03', default is 'timeRange')
         data_specifier (str): Data specifier (e.g. 'hourly', 'weather', default is 'noInfo').
+        precision (int): Precision for latitude and longitude values (default is 6).
 
     Returns:
         Path: Constructed data file name as a Path object.
@@ -292,17 +296,45 @@ def construct_weather_data_file_name(
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
 
-    if "lat" in coordinates and "lon" in coordinates:
-        formatted_lat = f"lat{coordinates['lat']:.6f}"
-        formatted_lon = f"lon{coordinates['lon']:.6f}"
-        file_suffix = get_file_suffix(data_format)
-        file_name = (
-            folder
-            / f"{formatted_lat}_{formatted_lon}__{time_specifier}__{data_specifier}{file_suffix}"
-        )
+    # Coordinates for area
+    if all(
+        key in coordinates for key in ["lat_start", "lat_end", "lon_start", "lon_end"]
+    ):
+        if coordinates["lat_start"] == coordinates["lat_end"]:
+            precision = 6
+            formatted_lat = f"lat{coordinates['lat_start']:.{precision}f}"
+        elif coordinates["lat_start"] < coordinates["lat_end"]:
+            formatted_lat = f"lat{coordinates['lat_start']:.{precision}f}_{coordinates['lat_end']:.{precision}f}"
+        else:
+            raise ValueError(
+                f"Latitude range not correctly defined. Start value ({coordinates['lat_start']}) "
+                f"must be not higher than end value ({coordinates['lat_end']})."
+            )
+
+        if coordinates["lon_start"] == coordinates["lon_end"]:
+            formatted_lon = f"lon{coordinates['lon_start']:.{precision}f}"
+        elif coordinates["lon_start"] < coordinates["lon_end"]:
+            formatted_lon = f"lon{coordinates['lon_start']:.{precision}f}_{coordinates['lon_end']:.{precision}f}"
+        else:
+            raise ValueError(
+                f"Longitude range not correctly defined. Start value ({coordinates['lon_start']}) "
+                f"must be not higher than end value ({coordinates['lon_end']})."
+            )
+    # Coordinates for single point
+    elif all(key in coordinates for key in ["lat", "lon"]):
+        formatted_lat = f"lat{coordinates['lat']:.{precision}f}"
+        formatted_lon = f"lon{coordinates['lon']:.{precision}f}"
     else:
         raise ValueError(
-            "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
+            "Coordinates not correctly defined. Please provide as dictionary, either for area "
+            "({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float}) "
+            "or for a single point ({'lat': float, 'lon': float})."
         )
+
+    file_suffix = get_file_suffix(data_format)
+    file_name = (
+        folder
+        / f"{formatted_lat}_{formatted_lon}__{time_specifier}__{data_specifier}{file_suffix}"
+    )
 
     return file_name

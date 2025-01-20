@@ -49,9 +49,11 @@ from copernicus import get_weather_data as gwd
 def data_processing(
     years,
     months,
-    coordinates,
+    coordinates_list,
     *,
-    final_resolution="daily",
+    download_whole_area=False,
+    grid_resolution=0.1,
+    final_time_resolution="daily",
     target_folder=None,
 ):
     """
@@ -60,33 +62,70 @@ def data_processing(
     Parameters:
         years (list of int): Years list.
         months (list of int): Months list.
-        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
-        final_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
+        coordinates_list (list of dict): List of dictionaries with 'lat' and 'lon' keys
+            ({'lat': float, 'lon': float}).
+        download_whole_area (bool): Download data for whole area (default is False). If False,
+            data will be downloaded for each location separately.
+        grid_resolution (float): Grid resolution for area (default is 0.1).
+        final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
         target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
+
+    Returns:
+        None
     """
-    if "lat" in coordinates and "lon" in coordinates:
-        print(
-            f"Preparing weather data for latitude: {coordinates['lat']}, longitude: {coordinates['lon']} ..."
-        )
-    else:
-        raise ValueError(
-            "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
-        )
 
     # Prepare requests
     months_list = gwd.construct_months_list(years, months)
     data_var_specs = gwd.get_var_specs()
-    data_requests = gwd.configure_data_request(data_var_specs, coordinates, months_list)
+
+    if download_whole_area:
+        # Configure requests to download whole area (for each time period)
+        area_coordinates = gwd.get_area_coordinates(
+            coordinates_list, resolution=grid_resolution
+        )
+        print("Requesting weather data for area ...")
+        print(
+            f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
+            f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']}",
+        )
+        coordinate_digits = 1
+        data_requests = gwd.configure_data_request(
+            data_var_specs,
+            area_coordinates,
+            months_list,
+            coordinate_digits=coordinate_digits,
+            data_format="netcdf",  # "grib",
+        )
+    else:
+        # Configure requests to separately download data for each location (for each time period)
+        area_coordinates = None
+        print("Requesting weather data for single locations ...")
+        coordinate_digits = 6
+        data_requests = []
+
+        for coordinates in coordinates_list:
+            print(f"latitude: {coordinates['lat']}, longitude: {coordinates['lon']}")
+            location_as_area = gwd.get_area_coordinates(
+                [coordinates], resolution=0, map_to_grid=False
+            )
+            data_requests.extend(
+                gwd.configure_data_request(
+                    data_var_specs, location_as_area, months_list
+                )
+            )
 
     # Download raw data
     cds_api_url = gwd.download_weather_data(data_requests)
 
     # Process raw data to final files
-    gwd.weather_data_to_txt_file(
-        data_var_specs,
-        coordinates,
-        months_list,
-        final_resolution=final_resolution,
-        target_folder=target_folder,
-        data_source=cds_api_url,
-    )
+    for coordinates in coordinates_list:
+        gwd.weather_data_to_txt_file(
+            data_var_specs,
+            coordinates,
+            months_list,
+            area_coordinates=area_coordinates,
+            coordinate_digits=coordinate_digits,
+            final_time_resolution=final_time_resolution,
+            target_folder=target_folder,
+            data_source=cds_api_url,
+        )

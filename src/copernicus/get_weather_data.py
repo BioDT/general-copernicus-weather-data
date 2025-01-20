@@ -50,6 +50,7 @@ import netCDF4
 import numpy as np
 import pandas as pd
 from netCDF4 import num2date
+from scipy.interpolate import griddata
 
 from copernicus import convert_weather_data as cwd
 from copernicus import utils as ut
@@ -108,7 +109,7 @@ def construct_months_list(years, months=list(range(1, 13))):
         # Add all months, combine always 4 months if full year
         if months == list(range(1, 13)):
             for month in range(1, 13, 4):
-                months_list.append((year, f"{month:02}-{month+3:02}"))
+                months_list.append((year, f"{month:02}-{month + 3:02}"))
         else:
             for month in months:
                 months_list.append((year, f"{month:02}"))
@@ -169,8 +170,61 @@ def get_var_specs():
     return data_var_specs
 
 
+def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
+    """
+    Get area coordinates based on a list of coordinates.
+
+    Parameters:
+        coordinates_list (list): List of coordinates dictionaries with 'lat' and 'lon' keys.
+        resolution (float): Grid resolution (default is 0.1 [degrees], e.g. ERA5 grid resolution used).
+        map_to_grid (bool): Map area coordinates to the nearest grid points (default is True,
+            otherwise use margin around the coordinates).
+
+    Returns:
+        dict: Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys.
+
+    Raises:
+        ValueError: If coordinates are not correctly defined.
+        ValueError: If resolution is not 0.1 or 0.25.
+    """
+    if map_to_grid and resolution not in [0.1, 0.25]:
+        raise ValueError("Grid resolution must be 0.1 or 0.25 degrees!")
+
+    # Check if each entry in the list has 'lat' and 'lon' keys
+    if not all(
+        all(key in coordinates for key in ["lat", "lon"])
+        for coordinates in coordinates_list
+    ):
+        raise ValueError(
+            "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
+        )
+
+    lat_list = [coordinates["lat"] for coordinates in coordinates_list]
+    lon_list = [coordinates["lon"] for coordinates in coordinates_list]
+
+    if map_to_grid:
+        # Area around the coordinates, extended to the nearest grid points
+        round_factor = round(1 / resolution)
+        area_coordinates = {
+            "lat_start": np.floor(min(lat_list) * round_factor) / round_factor,
+            "lat_end": np.ceil(max(lat_list) * round_factor) / round_factor,
+            "lon_start": np.floor(min(lon_list) * round_factor) / round_factor,
+            "lon_end": np.ceil(max(lon_list) * round_factor) / round_factor,
+        }
+    else:
+        # Area with margin around the min and max coordinate values, according to the resolution
+        area_coordinates = {
+            "lat_start": min(lat_list) - resolution,
+            "lat_end": max(lat_list) + resolution,
+            "lon_start": min(lon_list) - resolution,
+            "lon_end": max(lon_list) + resolution,
+        }
+
+    return area_coordinates
+
+
 def construct_request(
-    coordinates,
+    area_coordinates,
     year,
     month_str,
     variables,
@@ -181,7 +235,8 @@ def construct_request(
     Construct data request.
 
     Parameters:
-        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+        area_coordinates (dict): Dictionary with 'lat_start', 'lat_end', 'lon_start', and 'lon_end' keys
+          ({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float}).
         year (int): Year for the data request.
         month_str (str): Month(s) for the data request, can be one (e.g. '03')
             or range of months (e.g. '01-04').
@@ -194,16 +249,29 @@ def construct_request(
     """
     # Fragments for daily requests in commits before 2023-11-08.
 
+    # TODO: check grib format
+    # - download seems not faster
+    # - max number of items per request is the same
+    # - raw data files are larger
+    # - how to extract data from grib files?
+    #   - use cfgrib package ?
+    #   - use xarray.open_dataset with engine='cfgrib' ?
+    #   - grib data use a reduced Gaussian grid --> how to map to regular grid?
+    #     procedure generally described at: https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
+    # - the netcdf data already come using a regular grid:
+    #   - for areas, the grid point data is interpolated, we then interpolate again for single points
+    #   - for single points, the grid point data is also interpolated, but directly from the reduced Gaussian grid
+
     month_formatted = ut.format_month_str(month_str)
     request = {
         "variable": variables,
         "product_type": "reanalysis",
         "grid": "0.1/0.1",
-        "area": [  # works with exact location as lower and upper bounds of area
-            coordinates["lat"],
-            coordinates["lon"],
-            coordinates["lat"],
-            coordinates["lon"],
+        "area": [  # works also with exact location as lower and upper bounds of area
+            area_coordinates["lat_start"],
+            area_coordinates["lon_start"],
+            area_coordinates["lat_end"],
+            area_coordinates["lon_end"],
         ],
         "data_format": data_format,
         "day": [f"{d:02}" for d in range(1, 32)],  # works also for shorter months
@@ -218,20 +286,23 @@ def construct_request(
 
 def configure_data_request(
     data_var_specs,
-    coordinates,
+    area_coordinates,
     months_list,
     *,
     data_format="netcdf",
+    coordinate_digits=6,
 ):
     """
     Configure data requests.
 
     Parameters:
         data_var_specs (dict): Dictionary of variable specifications.
-        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+        area_coordinates (dict): Dictionary with 'lat_start', 'lat_end', 'lon_start', and 'lon_end' keys
+          ({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float}).
         months_list (list): List of (year, month_str) pairs, 'month_str' can be one (e.g. '03')
             or range of months (e.g. '01-04').
         data_format (str): Data format (default is 'netcdf').
+        coordinate_digits (int): Number of digits for coordinates in file name (default is 6).
 
     Returns:
         list: List of data requests and corresponding file names.
@@ -244,17 +315,19 @@ def configure_data_request(
 
     for year, month_str in months_list:
         request = construct_request(
-            coordinates,
+            area_coordinates,
             year,
             month_str,
             long_names,  # requested variables
+            data_format=data_format,
         )
         file_name = ut.construct_weather_data_file_name(
-            coordinates,
+            area_coordinates,
             folder="weatherDataRaw",
             data_format=data_format,
             time_specifier=f"{year}_{month_str}",
             data_specifier="hourly",
+            precision=coordinate_digits,
         )
         data_requests.append((request, file_name))
 
@@ -285,7 +358,9 @@ def weather_data_to_txt_file(
     coordinates,
     months_list,
     *,
-    final_resolution="daily",
+    area_coordinates=None,
+    coordinate_digits=6,
+    final_time_resolution="daily",
     target_folder="weatherDataPrepared",
     data_format="netcdf",
     data_source="https://cds.climate.copernicus.eu/api",
@@ -295,10 +370,14 @@ def weather_data_to_txt_file(
 
     Parameters:
         data_var_specs (dict): Dictionary of variable specifications.
-        coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+        coordinates (dict): Location as dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
         months_list (list): List of (year, month_str) pairs, 'month_str' can be one (e.g. '03')
-            or a range of months (e.g. '01-04')..
-        final_resolution (str): Resolution for final .txt file ('hourly' or 'daily', default is 'daily').
+            or a range of months (e.g. '01-04').
+        area_coordinates (dict): Area of raw weather data with 'lat_start', 'lat_end', 'lon_start', and
+            'lon_end' keys ({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float}).
+            If None, the area is defined by the location coordinates. (default is None).
+        grid_resolution (float): Spatial grid resolution for area data (default is 0.1).
+        final_time_resolution (str): Temporal resolution for final .txt file ('hourly' or 'daily', default is 'daily').
         target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
         data_format (str): Data format (default is 'netcdf', no other option currently).
         data_source (str): URL used in data requests (default is 'https://cds.climate.copernicus.eu/api').
@@ -317,14 +396,25 @@ def weather_data_to_txt_file(
         coordinates, return_as_offset=True, years=years_to_check
     )
     tz_label = ut.format_offset(tz_offset, add_utc=False)
+    single_point_data = False
+
+    if area_coordinates is None:
+        # Single point data (no area coordinates provided)
+        single_point_data = True
+        area_coordinates = get_area_coordinates(
+            [coordinates], resolution=0, map_to_grid=False
+        )
+
+    # TODO: develop code for both raw data formats, netCDF4 and grib
 
     for year, month_str in months_list:
         file_name = ut.construct_weather_data_file_name(
-            coordinates,
+            area_coordinates,
             folder="weatherDataRaw",
             data_format=data_format,
             time_specifier=f"{year}_{month_str}",
             data_specifier="hourly",
+            precision=coordinate_digits,
         )
 
         # Open netCDF4 file and extract variables
@@ -350,13 +440,42 @@ def weather_data_to_txt_file(
             }
         )
 
+        if not single_point_data:
+            # Meshgrid of latitude and longitude
+            # (works for increasing and decreasing latitudes and longitudes,
+            # but should be obtained from data file to get correct order)
+            lon_values = data_raw.variables["longitude"][:]
+            lat_values = data_raw.variables["latitude"][:]
+            lon_grid, lat_grid = np.meshgrid(lon_values, lat_values)
+            grid_points = (lat_grid.flatten(), lon_grid.flatten())
+
         # Collect and convert hourly data from data_raw
         for var_name in var_names:
-            data_var = cwd.convert_units(
-                data_raw.variables[data_var_specs[var_name]["short_name"]][:].flatten(),
-                data_var_specs[var_name]["unit_conversion"],
+            # Extract the data for the variable of interest
+            data_var = data_raw.variables[data_var_specs[var_name]["short_name"]][:]
+
+            if single_point_data:
+                data_values = data_var.flatten()
+            else:
+                # Perform bilinear interpolation for each time step
+                data_values = []
+
+                for time_step in range(data_var.shape[0]):
+                    data_slice = data_var[time_step, :, :]
+                    interpolated_value = griddata(
+                        grid_points,  # points
+                        data_slice.flatten(),  # values
+                        (coordinates["lat"], coordinates["lon"]),  # point of interest
+                        method="linear",
+                    )
+                    data_values.append(interpolated_value)
+
+            # Convert values to numpy array, and to target units
+            data_values = np.array(data_values)
+            converted_values = cwd.convert_units(
+                data_values, data_var_specs[var_name]["unit_conversion"]
             )
-            data_temp[data_var_specs[var_name]["col_name_hourly"]] = data_var
+            data_temp[data_var_specs[var_name]["col_name_hourly"]] = converted_values
 
         if not data_hourly.empty:
             data_hourly = pd.concat([data_hourly, data_temp], ignore_index=True)
@@ -374,8 +493,8 @@ def weather_data_to_txt_file(
 
     # Save DataFrame to .txt file, create data directory if missing
     time_range = (
-        f"{data_hourly["Local time"].values[0].split("T")[0]}"
-        f"_{data_hourly["Local time"].values[-2].split("T")[0]}"
+        f"{data_hourly['Local time'].values[0].split('T')[0]}"
+        f"_{data_hourly['Local time'].values[-2].split('T')[0]}"
     )
     file_name = ut.construct_weather_data_file_name(
         coordinates,
@@ -401,7 +520,7 @@ def weather_data_to_txt_file(
         )
 
     # Convert hourly to daily data if needed (e.g. for grassland model)
-    if final_resolution == "daily":
+    if final_time_resolution == "daily":
         cwd.hourly_to_daily(
             data_hourly,
             data_var_specs,
