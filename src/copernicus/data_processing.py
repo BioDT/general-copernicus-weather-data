@@ -43,7 +43,42 @@ Data source:
             - See detailed instructions at: https://cds.climate.copernicus.eu/how-to-api
 """
 
+from types import MappingProxyType
+
 from copernicus import get_weather_data as gwd
+
+# Define data variable specifications for download variables, including:
+#     long_name: Long name of the variable.
+#     short_name: Abbreviation of the variable.
+#     unit_conversion: Unit conversion from source to target data.
+#     col_name_hourly: Column name for the variable in hourly data (source data units converted).
+#     col_name_daily: Column name for the variable in daily data (source data units converted).
+# Additional vars for PET FAO calculation in commits before 2024-09-25.
+DATA_VAR_SPECS = MappingProxyType(
+    {
+        "precipitation": {
+            "long_name": "total_precipitation",
+            "short_name": "tp",
+            "unit_conversion": "_to_Milli",
+            "col_name_hourly": "Precipitation[mm] (acc.)",
+            "col_name_daily": "Precipitation[mm]",
+        },
+        "temperature": {
+            "long_name": "2m_temperature",
+            "short_name": "t2m",
+            "unit_conversion": "Kelvin_to_Celsius",
+            "col_name_hourly": "Temperature[degC]",
+            "col_name_daily": "Temperature[degC]",
+        },
+        "solar_radiation_down": {
+            "long_name": "surface_solar_radiation_downwards",
+            "short_name": "ssrd",
+            "unit_conversion": 0,
+            "col_name_hourly": "SSRD[Jm-2] (acc.)",
+            "col_name_daily": "PAR[µmolm-2s-1]",
+        },
+    }
+)
 
 
 def data_processing(
@@ -73,10 +108,9 @@ def data_processing(
     Returns:
         None
     """
-
     # Prepare requests
     months_list = gwd.construct_months_list(years, months)
-    data_var_specs = gwd.get_var_specs()
+    # data_var_specs = gwd.get_var_specs()
 
     if download_whole_area:
         # Configure requests to download whole area (for each time period)
@@ -90,7 +124,7 @@ def data_processing(
         )
         coordinate_digits = 1
         data_requests = gwd.configure_data_request(
-            data_var_specs,
+            DATA_VAR_SPECS,
             area_coordinates,
             months_list,
             coordinate_digits=coordinate_digits,
@@ -110,7 +144,7 @@ def data_processing(
             )
             data_requests.extend(
                 gwd.configure_data_request(
-                    data_var_specs, location_as_area, months_list
+                    DATA_VAR_SPECS, location_as_area, months_list
                 )
             )
 
@@ -120,7 +154,7 @@ def data_processing(
     # Process raw data to final files
     for coordinates in coordinates_list:
         gwd.weather_data_to_txt_file(
-            data_var_specs,
+            DATA_VAR_SPECS,
             coordinates,
             months_list,
             area_coordinates=area_coordinates,

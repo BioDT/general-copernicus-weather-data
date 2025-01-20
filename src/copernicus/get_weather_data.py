@@ -124,52 +124,6 @@ def construct_months_list(years, months=list(range(1, 13))):
     return months_list
 
 
-def get_var_specs():
-    """
-    Retrieve dictionary of variable specifications.
-
-    Create dictionary that provides specifications for potential download variables.
-    Each variable is identified by its name and includes the following information:
-        long_name: Long name of the variable.
-        short_name: Abbreviation of the variable.
-        unit_conversion: Unit conversion from source to target data.
-        col_name_hourly: Column name for the variable in hourly data (source data units converted).
-        col_name_daily: Column name for the variable in daily data (source data units converted).
-
-    Returns:
-        dict: Dictionary of variable specifications, where each key is a variable name,
-              and each value is a dictionary of specifications.
-
-    """
-    # Additional vars for PET FAO calculation in commits before 2024-09-25.
-
-    data_var_specs = {
-        "precipitation": {
-            "long_name": "total_precipitation",
-            "short_name": "tp",
-            "unit_conversion": "_to_Milli",
-            "col_name_hourly": "Precipitation[mm] (acc.)",
-            "col_name_daily": "Precipitation[mm]",
-        },
-        "temperature": {
-            "long_name": "2m_temperature",
-            "short_name": "t2m",
-            "unit_conversion": "Kelvin_to_Celsius",
-            "col_name_hourly": "Temperature[degC]",
-            "col_name_daily": "Temperature[degC]",
-        },
-        "solar_radiation_down": {
-            "long_name": "surface_solar_radiation_downwards",
-            "short_name": "ssrd",
-            "unit_conversion": 0,
-            "col_name_hourly": "SSRD[Jm-2] (acc.)",
-            "col_name_daily": "PAR[µmolm-2s-1]",
-        },
-    }
-
-    return data_var_specs
-
-
 def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
     """
     Get area coordinates based on a list of coordinates.
@@ -277,7 +231,7 @@ def construct_request(
         "day": [f"{d:02}" for d in range(1, 32)],  # works also for shorter months
         "year": str(year),
         "month": month_formatted,
-        "time": [f"{i:02}:00" for i in range(24)],
+        "time": [f"{idx:02}:00" for idx in range(24)],
         "download_format": "unarchived",
     }
 
@@ -348,7 +302,7 @@ def download_weather_data(data_requests):
 
     for request, file_name in data_requests:
         Path(file_name).parent.mkdir(parents=True, exist_ok=True)
-        client.retrieve("reanalysis-era5-land", request, file_name)
+        # client.retrieve("reanalysis-era5-land", request, file_name)
 
     return client.url
 

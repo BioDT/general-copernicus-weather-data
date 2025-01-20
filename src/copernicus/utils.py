@@ -151,13 +151,13 @@ def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
     raise ValueError("Time zone not found.")
 
 
-def get_day_length(coordinates, date_iterable):
+def get_day_length(coordinates, dates):
     """
     Get day length in hours for a given location and list of dates.
 
     Parameters:
         coordinates (dict): Coordinates dictionary with 'lat' and 'lon' keys.
-        date_iterable (iterable): Iterable of date strings.
+        dates (iterable): Iterable of date strings.
 
     Returns:
         list: List of day lengths in hours for the specified dates.
@@ -168,7 +168,7 @@ def get_day_length(coordinates, date_iterable):
     )
     day_lengths = []
 
-    for date_str in date_iterable:
+    for date_str in dates:
         try:
             year, month, day = map(int, date_str.split("-"))
             day_date = date(year, month, day)

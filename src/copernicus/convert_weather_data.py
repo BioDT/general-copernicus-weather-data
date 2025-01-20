@@ -116,11 +116,11 @@ def daily_mean_00_24(values_hourly):
     mean_00_24 = [
         stats.mean(
             [
-                values_hourly[i],
-                values_hourly[i + 24],
+                values_hourly[idx],
+                values_hourly[idx + 24],
             ]
         )
-        for i in range(0, len(values_hourly) - 1, 24)
+        for idx in range(0, len(values_hourly) - 1, 24)
     ]
 
     # COPY to prevent changing the original 'values_hourly' variable!
@@ -132,7 +132,8 @@ def daily_mean_00_24(values_hourly):
 
     # Calculate and return daily means
     means = [
-        values_for_means[i : i + 24].mean() for i in range(0, len(values_for_means), 24)
+        values_for_means[idx : idx + 24].mean()
+        for idx in range(0, len(values_for_means), 24)
     ]
 
     return np.array(means)
@@ -150,7 +151,8 @@ def daily_min_00_24(values_hourly):
     """
     # Calculate the min of the 25 values from 0:00 to 24:00 (day + 1 at 00:00)
     mins = [
-        values_hourly[i : i + 25].min() for i in range(0, len(values_hourly) - 1, 24)
+        values_hourly[idx : idx + 25].min()
+        for idx in range(0, len(values_hourly) - 1, 24)
     ]
 
     return np.array(mins)
@@ -168,7 +170,8 @@ def daily_max_00_24(values_hourly):
     """
     # Calculate the min of the 25 values from 0:00 to 24:00 (day + 1 at 00:00)
     maxs = [
-        values_hourly[i : i + 25].max() for i in range(0, len(values_hourly) - 1, 24)
+        values_hourly[idx : idx + 25].max()
+        for idx in range(0, len(values_hourly) - 1, 24)
     ]
 
     return np.array(maxs)
@@ -211,13 +214,13 @@ def daily_accumulated(values_hourly, tz_offset_hours=0):
     return values_accumulated
 
 
-def daily_mean_daylight(values_hourly, date_iterable, coordinates):
+def daily_mean_daylight(values_hourly, dates, coordinates):
     """
     Calculate daily mean values from hourly data, considering only daylight hours.
 
     Parameters:
         values_hourly (numpy.ndarray): Hourly data.
-        date_iterable (list or numpy.ndarray): Iterable of date strings (e.g., 'YYYY-MM-DD') corresponding to each day.
+        dates (list or numpy.ndarray): Iterable of date strings (e.g., 'YYYY-MM-DD') corresponding to each day.
         coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
 
     Returns:
@@ -229,7 +232,7 @@ def daily_mean_daylight(values_hourly, date_iterable, coordinates):
     )
     values_daylight = []
 
-    for i, date_str in enumerate(date_iterable):
+    for idx, date_str in enumerate(dates):
         try:
             year, month, day = map(int, date_str.split("-"))
             day_date = date(year, month, day)
@@ -263,7 +266,7 @@ def daily_mean_daylight(values_hourly, date_iterable, coordinates):
             weights[sunrise_index + 1 : sunset_index] = 1
 
             # Get weighted mean for daylight hours
-            day_values = values_hourly[i * 24 : i * 24 + 25]
+            day_values = values_hourly[idx * 24 : idx * 24 + 25]
             weighted_mean = np.sum(day_values * weights) / np.sum(weights)
             values_daylight.append(weighted_mean)
         except Exception as e:
@@ -355,20 +358,20 @@ def hourly_to_daily(
     print("Text file with daily resolution prepared.")
 
 
-def monthly_mean(values_daily, date_iterable):
+def monthly_mean(values_daily, dates):
     """
     Calculate monthly mean from daily data for each month of each year.
 
     Parameters:
         values_daily (array-like): Array of daily data.
-        date_iterable (array-like): Array of daily time strings in the format yyyy-mm-dd.
+        dates (array-like): Array of daily time strings in the format yyyy-mm-dd.
 
     Returns:
         numpy.ndarray: 2D array containing monthly mean values for each month of each year.
     """
     # Extract year and month from time strings
-    years = np.array([int(day_date[:4]) for day_date in date_iterable])
-    months = np.array([int(day_date[5:7]) for day_date in date_iterable])
+    years = np.array([int(day_date[:4]) for day_date in dates])
+    months = np.array([int(day_date[5:7]) for day_date in dates])
     unique_years = np.unique(years)
 
     # Calculate monthly means for each month of each year
@@ -423,7 +426,7 @@ def wind_speed_from_u_v(u_component, v_component):
     Returns:
         numpy.ndarray: Wind speed.
     """
-    return np.power(np.power(u_component, 2) + np.power(v_component, 2), 0.5)
+    return np.sqrt(u_component**2 + v_component**2)
 
 
 def wind_speed_height_change(wind_speed, height1=10, height2=2, z0=0.03):
@@ -592,28 +595,32 @@ def get_pet_thornthwaite(
     temperature,
     temperature_hourly,
     day_length,
-    date_iterable,
+    dates,
+    *,
     use_effective_temperature=True,
 ):
     """
     Calculate Potential Evapotranspiration (PET) using the Thornthwaite equation.
-    Daily version, Eqs. (1-5) in Pereira and Pruitt 2004
+    Daily version, Eqs. (1-5) in Pereira and Pruitt 2004.
+    Requires full years of daily data for calculation.
 
     Parameters:
         temperature (numpy.ndarray):  Daily mean temperature (unit: degC).
         temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC).
         day_length (numpy.ndarray): Daily day length (unit: hours).
-        date_iterable (array-like): Array of daily time strings in the format yyyy-mm-dd.
+        dates (array-like): Array of daily time strings in the format yyyy-mm-dd.
         use_effective_temperature(bool): Effective temperatures instead of daily means (default is True).
 
     Returns:
-        numpy.ndarray: Potential Evapotranspiration (PET) values (unit: mm).
+        numpy.ndarray: Daily Potential Evapotranspiration (PET) values (unit: mm),
+            if full year of daily input data were provided, otherwise 'nan' for all days
+            of the respective year.
     """
     # Initialize array to store PET values for each day
     pet_thorn = np.full_like(day_length, np.nan)
 
     # Extract year from time strings
-    years = np.array([int(day_date[:4]) for day_date in date_iterable])
+    years = np.array([int(day_date[:4]) for day_date in dates])
     unique_years = np.unique(years)
 
     # Check if all days from a year are present in the data (as per total number), otherwise return 'nan'
@@ -630,7 +637,7 @@ def get_pet_thornthwaite(
             return pet_thorn
 
     # Prepare variables for PET calculation
-    temperature_monthly = monthly_mean(temperature, date_iterable)
+    temperature_monthly = monthly_mean(temperature, dates)
     heat_index_yearly = heat_index(temperature_monthly)
     exponent_a_yearly = exponent_a(heat_index_yearly)
     correct_to_daily = day_length / 360  # Eq. (5) in Pereira and Pruitt 2004
@@ -642,39 +649,39 @@ def get_pet_thornthwaite(
         else temperature
     )
 
-    # Iterate over each entry in date_iterable and calculate PET for each day
-    for i, year in enumerate(years):
-        if temperature_used[i] <= 0:
-            pet_thorn[i] = 0
+    # Iterate over each entry in dates and calculate PET for each day
+    for idx, year in enumerate(years):
+        if temperature_used[idx] <= 0:
+            pet_thorn[idx] = 0
         else:
             # Eq. (1) in Pereira and Pruitt 2004
             pet_eq1 = (
-                correct_to_daily[i]
+                correct_to_daily[idx]
                 * 16
                 * np.power(
                     10
-                    * temperature_used[i]
+                    * temperature_used[idx]
                     / heat_index_yearly[unique_years == year][0],
                     exponent_a_yearly[unique_years == year][0],
                 )
             )
 
-            if temperature_used[i] > 26:
+            if temperature_used[idx] > 26:
                 # Eq. (4) in Pereira and Pruitt 2004
                 # Remark: Thornthwaite and Mather 1957 seem to use 26.5 °C, but newer sources usually 26 C°
-                pet_thorn[i] = correct_to_daily[i] * (
+                pet_thorn[idx] = correct_to_daily[idx] * (
                     -415.85
-                    + 32.24 * temperature_used[i]
-                    - 0.43 * temperature_used[i] ** 2
+                    + 32.24 * temperature_used[idx]
+                    - 0.43 * temperature_used[idx] ** 2
                 )
                 print(
-                    f"PET (Thornthwaite), {date_iterable[i]}: "
-                    f"temperature {temperature_used[i]:.2f} °C > 26 °C, "
-                    f"using Eq. (4): {pet_thorn[i]:.2f} mm, "
+                    f"PET (Thornthwaite), {dates[idx]}: "
+                    f"temperature {temperature_used[idx]:.2f} °C > 26 °C, "
+                    f"using Eq. (4): {pet_thorn[idx]:.2f} mm, "
                     f"Eq. (1) would give: {pet_eq1:.2f} mm."
                 )
             else:
                 # Use value from Eq. (1) in Pereira and Pruitt 2004
-                pet_thorn[i] = pet_eq1
+                pet_thorn[idx] = pet_eq1
 
     return pet_thorn
