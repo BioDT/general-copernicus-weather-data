@@ -48,11 +48,12 @@ from types import MappingProxyType
 from copernicus import get_weather_data as gwd
 
 # Define data variable specifications for download variables, including:
-#     long_name: Long name of the variable.
-#     short_name: Abbreviation of the variable.
-#     unit_conversion: Unit conversion from source to target data.
-#     col_name_hourly: Column name for the variable in hourly data (source data units converted).
-#     col_name_daily: Column name for the variable in daily data (source data units converted).
+#     long_name (str): Long name of the variable.
+#     short_name (str): Abbreviation of the variable.
+#     unit_conversion (str): Unit conversion from source to target data.
+#     col_name_hourly (str): Column name for the variable in hourly data (source data units converted).
+#     col_name_daily (str): Column name for the variable in daily data (source data units converted).
+#
 # Additional vars for PET FAO calculation in commits before 2024-09-25.
 DATA_VAR_SPECS = MappingProxyType(
     {

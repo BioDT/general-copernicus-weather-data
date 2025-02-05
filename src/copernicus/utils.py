@@ -75,10 +75,16 @@ def format_month_str(month_str):
     Returns:
         list of str: List of month(s) as strings.
     """
+    # Check if month_str contains a comma, raise error if so
+    if "," in month_str:
+        raise ValueError(
+            f"Comma not supported in 'month_str' ({month_str}). Use hyphen for month range."
+        )
+
     month_items = month_str.split("-")
 
     if len(month_items) == 1:
-        month_formatted = month_items
+        month_formatted = [f"{int(month_items[0]):02}"]
     elif len(month_items) == 2:
         month_formatted = [
             f"{m:02}" for m in range(int(month_items[0]), int(month_items[1]) + 1)
@@ -194,15 +200,11 @@ def get_file_suffix(data_format):
         str: Data file suffix.
     """
     if data_format == "netcdf":
-        file_suffix = ".nc"
-    elif data_format == "grib":
-        file_suffix = ".grib"
-    elif data_format == "txt":
-        file_suffix = ".txt"
+        return ".nc"
+    elif data_format in ["grib", "txt"]:
+        return f".{data_format}"
     else:
         raise ValueError("Unsupported data format.")
-
-    return file_suffix
 
 
 def list_to_file(list_to_write, file_name, *, column_names=None):
@@ -220,19 +222,36 @@ def list_to_file(list_to_write, file_name, *, column_names=None):
     ]
 
     # Check if list_to_write contains dictionaries
-    if isinstance(list_to_write[0], dict):
-        # Convert dictionaries to lists of values based on column_names
+    if any(isinstance(entry, dict) for entry in list_to_write):
+        if not all(isinstance(entry, dict) for entry in list_to_write):
+            raise ValueError(
+                "All entries in the list must be either dictionaries or not dictionaries. Cannot write list with mixed types."
+            )
+
+        # Get column names from dictionaries (keys of first dictionary) if not provided
+        if not column_names:
+            warnings.warn(
+                "No column names provided. Using keys from first dictionary in list to obtain column names."
+            )
+            column_names = list(list_to_write[0].keys())
+
+        if not column_names:
+            raise ValueError(
+                "No column names provided and no keys found in dictionaries to obtain column names. Cannot write list."
+            )
+
+        # Convert dictionaries to lists of values based on column_names, empty string if key not found
         list_to_write = [
             [entry.get(col, "") for col in column_names] for entry in list_to_write
         ]
-    # Check if all tuples in list have the same length as the column_names list
-    elif column_names and not all(
-        len(entry) == len(column_names) for entry in list_to_write
-    ):
-        print(
-            f"Error: All tuples in the list must have {len(column_names)} entries (same as column_names)."
-        )
-        return
+    else:
+        # Check if all tuples in list have the same length as the column_names list
+        if column_names and not all(
+            len(entry) == len(column_names) for entry in list_to_write
+        ):
+            raise ValueError(
+                "All entries in the list must have the same length as the column names list."
+            )
 
     file_path = Path(file_name)
     file_suffix = file_path.suffix.lower()

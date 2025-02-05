@@ -37,7 +37,7 @@ Sources:
 
 import statistics as stats
 import warnings
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -234,8 +234,7 @@ def daily_mean_daylight(values_hourly, dates, coordinates):
 
     for idx, date_str in enumerate(dates):
         try:
-            year, month, day = map(int, date_str.split("-"))
-            day_date = date(year, month, day)
+            day = int(date_str.split("-")[2])
             day_date = datetime.strptime(date_str, "%Y-%m-%d")
 
             # Get local sunrise and sunset times
