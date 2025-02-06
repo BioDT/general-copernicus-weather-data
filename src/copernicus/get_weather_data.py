@@ -141,6 +141,9 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
         ValueError: If coordinates are not correctly defined.
         ValueError: If resolution is not 0.1 or 0.25.
     """
+    if not isinstance(resolution, (int, float)) or resolution < 0:
+        raise ValueError("Resolution must be a number greater than or equal to 0!")
+
     if map_to_grid and resolution not in [0.1, 0.25]:
         raise ValueError("Grid resolution must be 0.1 or 0.25 degrees!")
 
@@ -156,22 +159,43 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
     lat_list = [coordinates["lat"] for coordinates in coordinates_list]
     lon_list = [coordinates["lon"] for coordinates in coordinates_list]
 
+    def get_max_decimal_digits(list_of_floats):
+        """Helper function to get maximum number of decimal digits in a list of floats."""
+        max_decimal_digits = 0
+
+        for f in list_of_floats:
+            str_f = str(f)
+            decimal_digits = len(str_f.split(".")[1]) if "." in str_f else 0
+            max_decimal_digits = max(max_decimal_digits, decimal_digits)
+
+        return max_decimal_digits
+
+    digits_required = get_max_decimal_digits(lat_list + lon_list + [resolution])
+
     if map_to_grid:
         # Area around the coordinates, extended to the nearest grid points
         round_factor = round(1 / resolution)
         area_coordinates = {
-            "lat_start": np.floor(min(lat_list) * round_factor) / round_factor,
-            "lat_end": np.ceil(max(lat_list) * round_factor) / round_factor,
-            "lon_start": np.floor(min(lon_list) * round_factor) / round_factor,
-            "lon_end": np.ceil(max(lon_list) * round_factor) / round_factor,
+            "lat_start": round(
+                np.floor(min(lat_list) * round_factor) / round_factor, digits_required
+            ),
+            "lat_end": round(
+                np.ceil(max(lat_list) * round_factor) / round_factor, digits_required
+            ),
+            "lon_start": round(
+                np.floor(min(lon_list) * round_factor) / round_factor, digits_required
+            ),
+            "lon_end": round(
+                np.ceil(max(lon_list) * round_factor) / round_factor, digits_required
+            ),
         }
     else:
         # Area with margin around the min and max coordinate values, according to the resolution
         area_coordinates = {
-            "lat_start": min(lat_list) - resolution,
-            "lat_end": max(lat_list) + resolution,
-            "lon_start": min(lon_list) - resolution,
-            "lon_end": max(lon_list) + resolution,
+            "lat_start": round((min(lat_list)) - resolution, digits_required),
+            "lat_end": round(max(lat_list) + resolution, digits_required),
+            "lon_start": round(min(lon_list) - resolution, digits_required),
+            "lon_end": round(max(lon_list) + resolution, digits_required),
         }
 
     return area_coordinates
@@ -238,7 +262,7 @@ def construct_request(
     return request
 
 
-def configure_data_request(
+def configure_data_requests(
     data_var_specs,
     area_coordinates,
     months_list,
@@ -302,7 +326,7 @@ def download_weather_data(data_requests):
 
     for request, file_name in data_requests:
         Path(file_name).parent.mkdir(parents=True, exist_ok=True)
-        # client.retrieve("reanalysis-era5-land", request, file_name)
+        client.retrieve("reanalysis-era5-land", request, file_name)
 
     return client.url
 
@@ -372,64 +396,71 @@ def weather_data_to_txt_file(
         )
 
         # Open netCDF4 file and extract variables
-        data_raw = netCDF4.Dataset(file_name)
-        history = getattr(data_raw, "history")
-        time_stamp, extra_info = history.split(" ", 1)
-        data_query_protocol.append(
-            [year, month_str, data_source, time_stamp + "+00:00", extra_info]
-        )
-
-        # Init data frame with time data
-        valid_time = data_raw.variables["valid_time"]
-        valid_time = num2date(valid_time[:], valid_time.units)  # cds times are UTC
-        local_time = valid_time + tz_offset  # local time, but w/o daylight saving time
-        data_temp = pd.DataFrame(
-            {
-                "Valid time": [
-                    t.isoformat(timespec="minutes") + "+00:00" for t in valid_time
-                ],
-                "Local time": [
-                    t.isoformat(timespec="minutes") + tz_label for t in local_time
-                ],
-            }
-        )
-
-        if not single_point_data:
-            # Meshgrid of latitude and longitude
-            # (works for increasing and decreasing latitudes and longitudes,
-            # but should be obtained from data file to get correct order)
-            lon_values = data_raw.variables["longitude"][:]
-            lat_values = data_raw.variables["latitude"][:]
-            lon_grid, lat_grid = np.meshgrid(lon_values, lat_values)
-            grid_points = (lat_grid.flatten(), lon_grid.flatten())
-
-        # Collect and convert hourly data from data_raw
-        for var_name in var_names:
-            # Extract the data for the variable of interest
-            data_var = data_raw.variables[data_var_specs[var_name]["short_name"]][:]
-
-            if single_point_data:
-                data_values = data_var.flatten()
-            else:
-                # Perform bilinear interpolation for each time step
-                data_values = []
-
-                for time_step in range(data_var.shape[0]):
-                    data_slice = data_var[time_step, :, :]
-                    interpolated_value = griddata(
-                        grid_points,  # points
-                        data_slice.flatten(),  # values
-                        (coordinates["lat"], coordinates["lon"]),  # point of interest
-                        method="linear",
-                    )
-                    data_values.append(interpolated_value)
-
-            # Convert values to numpy array, and to target units
-            data_values = np.array(data_values)
-            converted_values = cwd.convert_units(
-                data_values, data_var_specs[var_name]["unit_conversion"]
+        with netCDF4.Dataset(file_name) as data_raw:
+            history = getattr(data_raw, "history")
+            time_stamp, extra_info = history.split(" ", 1)
+            data_query_protocol.append(
+                [year, month_str, data_source, time_stamp + "+00:00", extra_info]
             )
-            data_temp[data_var_specs[var_name]["col_name_hourly"]] = converted_values
+
+            # Init data frame with time data
+            valid_time = data_raw.variables["valid_time"]
+            valid_time = num2date(valid_time[:], valid_time.units)  # cds times are UTC
+            local_time = (
+                valid_time + tz_offset
+            )  # local time, but w/o daylight saving time
+            data_temp = pd.DataFrame(
+                {
+                    "Valid time": [
+                        t.isoformat(timespec="minutes") + "+00:00" for t in valid_time
+                    ],
+                    "Local time": [
+                        t.isoformat(timespec="minutes") + tz_label for t in local_time
+                    ],
+                }
+            )
+
+            if not single_point_data:
+                # Meshgrid of latitude and longitude
+                # (works for increasing and decreasing latitudes and longitudes,
+                # but should be obtained from data file to get correct order)
+                lon_values = data_raw.variables["longitude"][:]
+                lat_values = data_raw.variables["latitude"][:]
+                lon_grid, lat_grid = np.meshgrid(lon_values, lat_values)
+                grid_points = (lat_grid.flatten(), lon_grid.flatten())
+
+            # Collect and convert hourly data from data_raw
+            for var_name in var_names:
+                # Extract the data for the variable of interest
+                data_var = data_raw.variables[data_var_specs[var_name]["short_name"]][:]
+
+                if single_point_data:
+                    data_values = data_var.flatten()
+                else:
+                    # Perform bilinear interpolation for each time step
+                    data_values = []
+
+                    for time_step in range(data_var.shape[0]):
+                        data_slice = data_var[time_step, :, :]
+                        interpolated_value = griddata(
+                            grid_points,  # points
+                            data_slice.flatten(),  # values
+                            (
+                                coordinates["lat"],
+                                coordinates["lon"],
+                            ),  # point of interest
+                            method="linear",
+                        )
+                        data_values.append(interpolated_value)
+
+                # Convert values to numpy array, and to target units
+                data_values = np.array(data_values)
+                converted_values = cwd.convert_units(
+                    data_values, data_var_specs[var_name]["unit_conversion"]
+                )
+                data_temp[data_var_specs[var_name]["col_name_hourly"]] = (
+                    converted_values
+                )
 
         if not data_hourly.empty:
             data_hourly = pd.concat([data_hourly, data_temp], ignore_index=True)

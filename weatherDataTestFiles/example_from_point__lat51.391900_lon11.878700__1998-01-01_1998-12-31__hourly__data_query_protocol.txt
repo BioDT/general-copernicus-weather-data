@@ -1,0 +1,6 @@
+year	month	data_source	time_stamp	info
+1997	12	https://cds.climate.copernicus.eu/api	2024-12-20T07:31+00:00	"GRIB to CDM+CF via cfgrib-0.9.14.1/ecCodes-2.36.0 with {""source"": ""data.grib"", ""filter_by_keys"": {}, ""encode_cf"": [""parameter"", ""time"", ""geography"", ""vertical""]}"
+1998	01-04	https://cds.climate.copernicus.eu/api	2024-12-20T10:05+00:00	"GRIB to CDM+CF via cfgrib-0.9.14.1/ecCodes-2.36.0 with {""source"": ""data.grib"", ""filter_by_keys"": {}, ""encode_cf"": [""parameter"", ""time"", ""geography"", ""vertical""]}"
+1998	05-08	https://cds.climate.copernicus.eu/api	2024-12-20T12:36+00:00	"GRIB to CDM+CF via cfgrib-0.9.14.1/ecCodes-2.36.0 with {""source"": ""data.grib"", ""filter_by_keys"": {}, ""encode_cf"": [""parameter"", ""time"", ""geography"", ""vertical""]}"
+1998	09-12	https://cds.climate.copernicus.eu/api	2024-12-20T17:52+00:00	"GRIB to CDM+CF via cfgrib-0.9.14.1/ecCodes-2.36.0 with {""source"": ""data.grib"", ""filter_by_keys"": {}, ""encode_cf"": [""parameter"", ""time"", ""geography"", ""vertical""]}"
+1999	01	https://cds.climate.copernicus.eu/api	2024-12-20T20:31+00:00	"GRIB to CDM+CF via cfgrib-0.9.14.1/ecCodes-2.36.0 with {""source"": ""data.grib"", ""filter_by_keys"": {}, ""encode_cf"": [""parameter"", ""time"", ""geography"", ""vertical""]}"

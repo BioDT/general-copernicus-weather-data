@@ -111,7 +111,6 @@ def data_processing(
     """
     # Prepare requests
     months_list = gwd.construct_months_list(years, months)
-    # data_var_specs = gwd.get_var_specs()
 
     if download_whole_area:
         # Configure requests to download whole area (for each time period)
@@ -124,7 +123,7 @@ def data_processing(
             f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']}",
         )
         coordinate_digits = 1
-        data_requests = gwd.configure_data_request(
+        data_requests = gwd.configure_data_requests(
             DATA_VAR_SPECS,
             area_coordinates,
             months_list,
@@ -144,7 +143,7 @@ def data_processing(
                 [coordinates], resolution=0, map_to_grid=False
             )
             data_requests.extend(
-                gwd.configure_data_request(
+                gwd.configure_data_requests(
                     DATA_VAR_SPECS, location_as_area, months_list
                 )
             )

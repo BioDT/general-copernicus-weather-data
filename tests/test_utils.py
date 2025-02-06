@@ -23,6 +23,8 @@ for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CS
 Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -283,3 +285,12 @@ def test_construct_weather_data_file_name():
             {"lat": 12, "lon": -12},
             data_format="any_format",  # Invalid data format
         )
+
+    # Remove test folders if they were just created (i.e. they are empty)
+    folders = ["weatherDataFolder", "test_folder"]
+
+    for folder in folders:
+        folder = Path(folder)
+
+        if folder.is_dir() and not any(folder.iterdir()):
+            folder.rmdir()
