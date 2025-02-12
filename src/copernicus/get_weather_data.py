@@ -255,7 +255,7 @@ def construct_request(
         "day": [f"{d:02}" for d in range(1, 32)],  # works also for shorter months
         "year": str(year),
         "month": month_formatted,
-        "time": [f"{idx:02}:00" for idx in range(24)],
+        "time": [f"{index:02}:00" for index in range(24)],
         "download_format": "unarchived",
     }
 

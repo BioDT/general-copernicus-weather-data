@@ -93,6 +93,11 @@ def par_from_net_radiation(values):
     Returns:
         numpy.ndarray: PAR values (unit: µmol/m²/s).
     """
+    if np.any(values < 0):
+        warnings.warn("Negative values in net radiation data were corrected to 0.")
+
+    values = np.maximum(values, 0)
+
     # 4.57 µmol/J, PAR fraction 0.5
     par = values * 4.57 * 0.5
 
@@ -100,6 +105,44 @@ def par_from_net_radiation(values):
     par = convert_units(par, "d-1_to_s-1")
 
     return np.array(par)
+
+
+def check_length_of_values_00_24(values_hourly):
+    """
+    Check length of hourly values for calculation of daily values from 00:00 to 24:00.
+
+    Parameters:
+        values_hourly (numpy.ndarray): Hourly data.
+
+    Returns:
+        numpy.ndarray: Checked and adjusted hourly values, i.e. length reduced to full days.
+
+    Raises:
+        ValueError: If length of hourly values is less than 1 full day, i.e. 25 values.
+    """
+    length_input = len(values_hourly)
+
+    if length_input < 25:
+        raise ValueError(
+            f"Length of hourly values ({length_input}) must be at least 25 for calculation of daily values."
+        )
+    else:
+        # COPY to prevent changing the original 'values_hourly' variable!
+        values_checked = values_hourly.copy()
+
+        if length_input % 24 == 0:
+            values_checked = values_checked[:-23]
+        else:
+            values_checked = values_checked[
+                : len(values_checked) - (len(values_checked) % 24 - 1)
+            ]
+
+        if len(values_checked) < length_input:
+            warnings.warn(
+                f"Length of hourly values ({length_input}) was reduced to {len(values_checked)} for calculation of daily values."
+            )
+
+        return values_checked
 
 
 def daily_mean_00_24(values_hourly):
@@ -112,28 +155,29 @@ def daily_mean_00_24(values_hourly):
     Returns:
         numpy.ndarray: Daily mean values.
     """
+    values_checked = check_length_of_values_00_24(values_hourly)
+
     # Calculate the mean of the two values at 0:00 and 24:00 (day + 1 at 00:00)
     mean_00_24 = [
         stats.mean(
             [
-                values_hourly[idx],
-                values_hourly[idx + 24],
+                values_checked[index],
+                values_checked[index + 24],
             ]
         )
-        for idx in range(0, len(values_hourly) - 1, 24)
+        for index in range(0, len(values_checked) - 24, 24)
     ]
 
-    # COPY to prevent changing the original 'values_hourly' variable!
     # Omit last entry from last Day + 1 at 00:00,
-    values_for_means = values_hourly[:-1].copy()
+    values_for_means = values_checked[:-1]
 
     # Replace 00:00 entries with calculated means of 00:00 and 24:00
     values_for_means[::24] = mean_00_24
 
     # Calculate and return daily means
     means = [
-        values_for_means[idx : idx + 24].mean()
-        for idx in range(0, len(values_for_means), 24)
+        values_for_means[index : index + 24].mean()
+        for index in range(0, len(values_for_means), 24)
     ]
 
     return np.array(means)
@@ -149,10 +193,12 @@ def daily_min_00_24(values_hourly):
     Returns:
         numpy.ndarray: Daily minimum values.
     """
+    values_checked = check_length_of_values_00_24(values_hourly)
+
     # Calculate the min of the 25 values from 0:00 to 24:00 (day + 1 at 00:00)
     mins = [
-        values_hourly[idx : idx + 25].min()
-        for idx in range(0, len(values_hourly) - 1, 24)
+        values_checked[index : index + 25].min()
+        for index in range(0, len(values_checked) - 24, 24)
     ]
 
     return np.array(mins)
@@ -168,10 +214,12 @@ def daily_max_00_24(values_hourly):
     Returns:
         numpy.ndarray: Daily maximum values.
     """
+    values_checked = check_length_of_values_00_24(values_hourly)
+
     # Calculate the min of the 25 values from 0:00 to 24:00 (day + 1 at 00:00)
     maxs = [
-        values_hourly[idx : idx + 25].max()
-        for idx in range(0, len(values_hourly) - 1, 24)
+        values_checked[index : index + 25].max()
+        for index in range(0, len(values_checked) - 24, 24)
     ]
 
     return np.array(maxs)
@@ -232,7 +280,7 @@ def daily_mean_daylight(values_hourly, dates, coordinates):
     )
     values_daylight = []
 
-    for idx, date_str in enumerate(dates):
+    for index, date_str in enumerate(dates):
         try:
             day = int(date_str.split("-")[2])
             day_date = datetime.strptime(date_str, "%Y-%m-%d")
@@ -265,7 +313,7 @@ def daily_mean_daylight(values_hourly, dates, coordinates):
             weights[sunrise_index + 1 : sunset_index] = 1
 
             # Get weighted mean for daylight hours
-            day_values = values_hourly[idx * 24 : idx * 24 + 25]
+            day_values = values_hourly[index * 24 : index * 24 + 25]
             weighted_mean = np.sum(day_values * weights) / np.sum(weights)
             values_daylight.append(weighted_mean)
         except Exception as e:
@@ -649,38 +697,38 @@ def get_pet_thornthwaite(
     )
 
     # Iterate over each entry in dates and calculate PET for each day
-    for idx, year in enumerate(years):
-        if temperature_used[idx] <= 0:
-            pet_thorn[idx] = 0
+    for index, year in enumerate(years):
+        if temperature_used[index] <= 0:
+            pet_thorn[index] = 0
         else:
             # Eq. (1) in Pereira and Pruitt 2004
             pet_eq1 = (
-                correct_to_daily[idx]
+                correct_to_daily[index]
                 * 16
                 * np.power(
                     10
-                    * temperature_used[idx]
+                    * temperature_used[index]
                     / heat_index_yearly[unique_years == year][0],
                     exponent_a_yearly[unique_years == year][0],
                 )
             )
 
-            if temperature_used[idx] > 26:
+            if temperature_used[index] > 26:
                 # Eq. (4) in Pereira and Pruitt 2004
                 # Remark: Thornthwaite and Mather 1957 seem to use 26.5 °C, but newer sources usually 26 C°
-                pet_thorn[idx] = correct_to_daily[idx] * (
+                pet_thorn[index] = correct_to_daily[index] * (
                     -415.85
-                    + 32.24 * temperature_used[idx]
-                    - 0.43 * temperature_used[idx] ** 2
+                    + 32.24 * temperature_used[index]
+                    - 0.43 * temperature_used[index] ** 2
                 )
                 print(
-                    f"PET (Thornthwaite), {dates[idx]}: "
-                    f"temperature {temperature_used[idx]:.2f} °C > 26 °C, "
-                    f"using Eq. (4): {pet_thorn[idx]:.2f} mm, "
+                    f"PET (Thornthwaite), {dates[index]}: "
+                    f"temperature {temperature_used[index]:.2f} °C > 26 °C, "
+                    f"using Eq. (4): {pet_thorn[index]:.2f} mm, "
                     f"Eq. (1) would give: {pet_eq1:.2f} mm."
                 )
             else:
                 # Use value from Eq. (1) in Pereira and Pruitt 2004
-                pet_thorn[idx] = pet_eq1
+                pet_thorn[index] = pet_eq1
 
     return pet_thorn
