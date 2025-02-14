@@ -410,7 +410,7 @@ def monthly_mean(values_daily, dates):
     Calculate monthly mean from daily data for each month of each year.
 
     Parameters:
-        values_daily (array-like): Array of daily data.
+        values_daily (numpy.ndarray): Array of daily data.
         dates (array-like): Array of daily time strings in the format yyyy-mm-dd.
 
     Returns:

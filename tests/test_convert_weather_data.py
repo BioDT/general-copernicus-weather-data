@@ -23,9 +23,14 @@ for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CS
 Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Access call.
 """
 
+import calendar
+import os
+import shutil
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from astral import LocationInfo
 from astral.sun import sun
@@ -38,9 +43,13 @@ from copernicus.convert_weather_data import (
     daily_mean_00_24,
     daily_mean_daylight,
     daily_min_00_24,
+    get_pet_thornthwaite,
+    hourly_to_daily,
+    monthly_mean,
     par_from_net_radiation,
 )
-from copernicus.utils import get_time_zone
+from copernicus.data_processing import DATA_VAR_SPECS
+from copernicus.utils import get_day_length, get_time_zone
 
 
 def test_convert_units():
@@ -308,3 +317,152 @@ def test_daily_mean_daylight():
         target_value = round(weighted_sum / sum_of_weights, precision)
 
         assert round(daylight_values[index], precision) == target_value
+
+
+def test_hourly_to_daily():
+    """Test hourly_to_daily function for conversion of hourly to daily data."""
+    # Create data hourly dataframes, example offsets are 0, 2 and -2 hours
+    dates_local = {"+00:00": [], "+02:00": [], "-02:00": []}
+    dates_UTC = {"+00:00": [], "+02:00": [], "-02:00": []}
+    year = 2021
+    coordinates = {"lat": 50, "lon": 10}
+    values_continuous = []
+
+    for month in range(1, 13):
+        for day in range(1, calendar.monthrange(year, month)[1] + 1):
+            for hour in range(24):
+                values_continuous.append(round(month + day / 100 + hour / 10000, 6))
+
+                date_str = f"2021-{month:02d}-{day:02d}T{hour:02d}:00"
+                dates_UTC["+00:00"].append(f"{date_str}+00:00")
+                dates_local["+02:00"].append(f"{date_str}+02:00")  # 2 hours ahead
+                dates_local["-02:00"].append(f"{date_str}-02:00")  # 2 hours behind
+
+    # First entries of next year is needed
+    values_continuous.append(12.3124)
+
+    dates_UTC["+00:00"].append("2022-01-01T00:00+00:00")
+    dates_local["+00:00"] = dates_UTC["+00:00"]
+    dates_local["+02:00"].append("2022-01-01T00:00+02:00")  # 2 hours ahead
+    dates_local["-02:00"].append("2022-01-01T00:00-02:00")  # 2 hours behind
+
+    # Shift UTC dates by offsets
+    dates_UTC["+02:00"] = [
+        "2020-12-31T22:00+00:00",
+        "2020-12-31T23:00+00:00",
+    ] + dates_UTC["+00:00"][:-2]
+    dates_UTC["-02:00"] = dates_UTC["+00:00"][2:] + [
+        "2022-01-01T01:00+00:00",
+        "2022-01-01T02:00+00:00",
+    ]
+
+    values_accumulated_UTC = {
+        "+00:00": np.array([24] + list(range(1, 25)) * 365),
+        "+02:00": np.array(
+            np.array([22, 23, 24] + list(range(1, 25)) * 364 + list(range(1, 23)))
+        ),
+        "-02:00": np.array(list(range(2, 25)) + list(range(1, 25)) * 364 + [1, 2]),
+    }
+
+    # Specify expected data format
+    precision = 6  # 6 decimal places expected in results data
+    results_file_path = Path(
+        "weatherDataTestResults"
+        + os.sep
+        + "lat50.000000_lon10.000000__2021-01-01_2021-12-31__weather.txt"
+    )
+    target_data_created = False
+
+    # Create folder for prepared daily data
+    os.makedirs("weatherDataTestResults", exist_ok=True)
+    remove_folder = not any(Path("weatherDataTestResults").iterdir())
+
+    for offset_hours in [0, 2, -2]:
+        offset_str = f"{offset_hours:+03d}:00"
+        data_hourly = pd.DataFrame(
+            {
+                "Valid time": dates_UTC[offset_str],
+                "Local time": dates_local[offset_str],
+                "Precipitation[mm] (acc.)": values_accumulated_UTC[offset_str],
+                "Temperature[degC]": np.array(values_continuous),
+                "SSRD[Jm-2] (acc.)": values_accumulated_UTC[offset_str] * 100000,
+            }
+        )
+        hourly_to_daily(
+            data_hourly,
+            DATA_VAR_SPECS,
+            coordinates,
+            tz_offset_hours=offset_hours,
+            target_folder="weatherDataTestResults",
+        )
+        generated_content = pd.read_csv(results_file_path, delimiter="\t")
+
+        # Specify expected data (independent of offset, because input data were adjusted)
+        # Note: functions used for mean etc. are tested separately
+        if not target_data_created:
+            target_data = {
+                "Date": data_hourly["Local time"][:-24:24].str.split("T").str[0].values,
+                "Precipitation[mm]": daily_accumulated(
+                    data_hourly["Precipitation[mm] (acc.)"].values,
+                    tz_offset_hours=offset_hours,
+                ),
+                "Temperature[degC]": daily_mean_00_24(
+                    data_hourly["Temperature[degC]"].values
+                ),
+            }
+            target_data["Temperature_Daylight[degC]"] = daily_mean_daylight(
+                data_hourly["Temperature[degC]"].values,
+                target_data["Date"],
+                coordinates,
+            )
+            target_data["PAR[µmolm-2s-1]"] = par_from_net_radiation(
+                daily_accumulated(
+                    data_hourly["SSRD[Jm-2] (acc.)"].values,
+                    tz_offset_hours=offset_hours,
+                )
+            )
+            target_data["Daylength[h]"] = get_day_length(
+                coordinates, target_data["Date"]
+            )
+            target_data["PET[mm]"] = get_pet_thornthwaite(
+                target_data["Temperature[degC]"],
+                data_hourly["Temperature[degC]"].values,
+                target_data["Daylength[h]"],
+                target_data["Date"],
+                use_effective_temperature=False,
+            )
+            target_data_created = True
+
+        assert generated_content.shape == (365, len(target_data.keys()))
+        assert list(generated_content.columns) == list(target_data.keys())
+
+        for key in target_data.keys():
+            if key == "Date":
+                assert all(generated_content[key] == target_data[key])
+            else:
+                assert all(
+                    generated_content[key] == np.round(target_data[key], precision)
+                )
+
+    if remove_folder:
+        shutil.rmtree("weatherDataTestResults")
+
+
+def test_monthly_mean():
+    """Test monthly_mean function."""
+    dates = []
+    values = []
+    target_means = np.zeros((3, 12))
+
+    for year_index, year in enumerate(range(2020, 2023)):  # include leap year
+        for month_index, month in enumerate(range(1, 13)):
+            for day in range(1, calendar.monthrange(year, month)[1] + 1):
+                dates.append(f"{year}-{month:02d}-{day:02d}")
+                values.append((year - 2020) * 100 + month + day / 100)
+
+            # Calculate target mean for each month
+            target_means[year_index, month_index] = np.mean(
+                values[-calendar.monthrange(year, month)[1] :]
+            )
+
+    assert (monthly_mean(np.array(values), dates) == target_means).all()
