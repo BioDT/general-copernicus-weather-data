@@ -43,12 +43,15 @@ Data source:
             - See detailed instructions at: https://cds.climate.copernicus.eu/how-to-api
 """
 
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import cdsapi
 import netCDF4
 import numpy as np
 import pandas as pd
+import xarray as xr
 from netCDF4 import num2date
 from scipy.interpolate import griddata
 
@@ -207,7 +210,7 @@ def construct_request(
     month_str,
     variables,
     *,
-    data_format="netcdf",
+    data_format="grib",
 ):
     """
     Construct data request.
@@ -219,7 +222,7 @@ def construct_request(
         month_str (str): Month(s) for the data request, can be one (e.g. '03')
             or range of months (e.g. '01-04').
         variables (list): List of variables to request.
-        data_format (str): Data format (default is 'netcdf' (netCDF4), use 'netcdf_legacy' to get
+        data_format (str): Data format ('grib' (default), 'netcdf' (netCDF4), or 'netcdf_legacy' to get
             output in the format of the CDS API before their update in 24-09).
 
     Returns:
@@ -227,18 +230,18 @@ def construct_request(
     """
     # Fragments for daily requests in commits before 2023-11-08.
 
-    # TODO: check grib format
-    # - download seems not faster
+    # Notes on GRIB versus NetCDF data format:
+    # - download/queuing times seem similar
     # - max number of items per request is the same
-    # - raw data files are larger
-    # - how to extract data from grib files?
-    #   - use cfgrib package ?
-    #   - use xarray.open_dataset with engine='cfgrib' ?
-    #   - grib data use a reduced Gaussian grid --> how to map to regular grid?
-    #     procedure generally described at: https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
-    # - the netcdf data already come using a regular grid:
-    #   - for areas, the grid point data is interpolated, we then interpolate again for single points
-    #   - for single points, the grid point data is also interpolated, but directly from the reduced Gaussian grid
+    # - raw data files are larger for GRIB
+    # - GRIB is recommended option by CDS,
+    #   cf. https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems
+    # - GRIB data use a reduced Gaussian grid for quasi-uniform spacing around the globe,
+    #   cf. https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
+    # - NetCDF area data already come mapped to a regular grid by interpolation,
+    #   this means we then interpolate again for single points (double interpolation)
+    # - NetCDF single point data get interpolated directly from the reduced Gaussian grid,
+    #   but this needs separate requests for each point (not efficient for many clustered points)
 
     month_formatted = ut.format_month_str(month_str)
     request = {
@@ -267,7 +270,7 @@ def configure_data_requests(
     area_coordinates,
     months_list,
     *,
-    data_format="netcdf",
+    data_format="grib",
     coordinate_digits=6,
 ):
     """
@@ -279,7 +282,7 @@ def configure_data_requests(
           ({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float}).
         months_list (list): List of (year, month_str) pairs, 'month_str' can be one (e.g. '03')
             or range of months (e.g. '01-04').
-        data_format (str): Data format (default is 'netcdf').
+        data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
         coordinate_digits (int): Number of digits for coordinates in file name (default is 6).
 
     Returns:
@@ -340,7 +343,7 @@ def weather_data_to_txt_file(
     coordinate_digits=6,
     final_time_resolution="daily",
     target_folder="weatherDataPrepared",
-    data_format="netcdf",
+    data_format="grib",
     data_source="https://cds.climate.copernicus.eu/api",
 ):
     """
@@ -357,7 +360,7 @@ def weather_data_to_txt_file(
         grid_resolution (float): Spatial grid resolution for area data (default is 0.1).
         final_time_resolution (str): Temporal resolution for final .txt file ('hourly' or 'daily', default is 'daily').
         target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
-        data_format (str): Data format (default is 'netcdf', no other option currently).
+        data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
         data_source (str): URL used in data requests (default is 'https://cds.climate.copernicus.eu/api').
     """
     # Fragments for daily requests (toolbox version before CDS update) in commits before 2023-11-08.
@@ -383,89 +386,186 @@ def weather_data_to_txt_file(
             [coordinates], resolution=0, map_to_grid=False
         )
 
-    # TODO: develop code for both raw data formats, netCDF4 and grib
-
-    for year, month_str in months_list:
-        file_name = ut.construct_weather_data_file_name(
-            area_coordinates,
-            folder="weatherDataRaw",
-            data_format=data_format,
-            time_specifier=f"{year}_{month_str}",
-            data_specifier="hourly",
-            precision=coordinate_digits,
-        )
-
-        # Open netCDF4 file and extract variables
-        with netCDF4.Dataset(file_name) as data_raw:
-            history = getattr(data_raw, "history")
-            time_stamp, extra_info = history.split(" ", 1)
-            data_query_protocol.append(
-                [year, month_str, data_source, time_stamp + "+00:00", extra_info]
+    if data_format == "netcdf":
+        for year, month_str in months_list:
+            file_name = ut.construct_weather_data_file_name(
+                area_coordinates,
+                folder="weatherDataRaw",
+                data_format=data_format,
+                time_specifier=f"{year}_{month_str}",
+                data_specifier="hourly",
+                precision=coordinate_digits,
             )
 
-            # Init data frame with time data
-            valid_time = data_raw.variables["valid_time"]
-            valid_time = num2date(valid_time[:], valid_time.units)  # cds times are UTC
-            local_time = (
-                valid_time + tz_offset
-            )  # local time, but w/o daylight saving time
-            data_temp = pd.DataFrame(
-                {
-                    "Valid time": [
-                        t.isoformat(timespec="minutes") + "+00:00" for t in valid_time
-                    ],
-                    "Local time": [
-                        t.isoformat(timespec="minutes") + tz_label for t in local_time
-                    ],
-                }
+            # Open netCDF4 file and extract variables
+            with netCDF4.Dataset(file_name) as data_raw:
+                history = getattr(data_raw, "history")
+                time_stamp, extra_info = history.split(" ", 1)
+                data_query_protocol.append(
+                    [year, month_str, data_source, time_stamp + "+00:00", extra_info]
+                )
+
+                # Init data frame with time data
+                valid_time = data_raw.variables["valid_time"]
+                valid_time = num2date(
+                    valid_time[:], valid_time.units
+                )  # CDS times are UTC
+                local_time = (
+                    valid_time + tz_offset
+                )  # local time, but w/o daylight saving time
+                data_temp = pd.DataFrame(
+                    {
+                        "Valid time": [
+                            t.isoformat(timespec="minutes") + "+00:00"
+                            for t in valid_time
+                        ],
+                        "Local time": [
+                            t.isoformat(timespec="minutes") + tz_label
+                            for t in local_time
+                        ],
+                    }
+                )
+
+                if not single_point_data:
+                    # Meshgrid of latitude and longitude
+                    # (works for increasing and decreasing latitudes and longitudes,
+                    # but should be obtained from data file to get correct order)
+                    lon_values = data_raw.variables["longitude"][:]
+                    lat_values = data_raw.variables["latitude"][:]
+                    lon_grid, lat_grid = np.meshgrid(lon_values, lat_values)
+                    grid_points = (lat_grid.flatten(), lon_grid.flatten())
+
+                # Collect and convert hourly data from data_raw
+                for var_name in var_names:
+                    # Extract the data for the variable of interest
+                    data_var = data_raw.variables[
+                        data_var_specs[var_name]["short_name"]
+                    ][:]
+
+                    if single_point_data:
+                        data_values = data_var.flatten()
+                    else:
+                        # Perform bilinear interpolation for each time step
+                        data_values = []
+
+                        for time_step in range(data_var.shape[0]):
+                            data_slice = data_var[time_step, :, :]
+                            interpolated_value = griddata(
+                                grid_points,  # points
+                                data_slice.flatten(),  # values
+                                (
+                                    coordinates["lat"],
+                                    coordinates["lon"],
+                                ),  # point of interest
+                                method="linear",
+                            )
+                            data_values.append(interpolated_value)
+
+                    # Convert values to numpy array, and to target units
+                    data_values = np.array(data_values)
+                    converted_values = cwd.convert_units(
+                        data_values, data_var_specs[var_name]["unit_conversion"]
+                    )
+                    data_temp[data_var_specs[var_name]["col_name_hourly"]] = (
+                        converted_values
+                    )
+
+            if not data_hourly.empty:
+                data_hourly = pd.concat([data_hourly, data_temp], ignore_index=True)
+            else:
+                data_hourly = data_temp
+
+    elif data_format == "grib":
+        # Note: GRIB data come with last day of previous month as first entry,
+        #       but contain NANs for:
+        #       - all hourly values of first day except last value
+        #       - last value of last day
+        #       --> omitting these values for consistent concatenation of time series
+        # Option: consider xr.merge or xr.open_mfdataset to combine several files to one time series?
+        start_hours_skipped = 23
+        end_hours_skipped = 1
+
+        for year, month_str in months_list:
+            file_name = ut.construct_weather_data_file_name(
+                area_coordinates,
+                folder="weatherDataRaw",
+                data_format=data_format,
+                time_specifier=f"{year}_{month_str}",
+                data_specifier="hourly",
+                precision=coordinate_digits,
             )
 
-            if not single_point_data:
-                # Meshgrid of latitude and longitude
-                # (works for increasing and decreasing latitudes and longitudes,
-                # but should be obtained from data file to get correct order)
-                lon_values = data_raw.variables["longitude"][:]
-                lat_values = data_raw.variables["latitude"][:]
-                lon_grid, lat_grid = np.meshgrid(lon_values, lat_values)
-                grid_points = (lat_grid.flatten(), lon_grid.flatten())
+            # Get file creation time (or modification time if creation time is not available)
+            time_stamp = (
+                datetime.fromtimestamp(os.path.getctime(file_name))
+                .astimezone(timezone.utc)  # convert to UTC
+                .isoformat(timespec="seconds")
+            )
 
-            # Collect and convert hourly data from data_raw
-            for var_name in var_names:
-                # Extract the data for the variable of interest
-                data_var = data_raw.variables[data_var_specs[var_name]["short_name"]][:]
+            # Open GRIB file and extract variables
+            with xr.load_dataset(file_name, engine="cfgrib") as data_raw:
+                # Get extra info from history attribute
+                extra_info = getattr(data_raw, "history").split(" ", 1)[1]
+                data_query_protocol.append(
+                    [year, month_str, data_source, time_stamp, extra_info]
+                )
 
-                if single_point_data:
-                    data_values = data_var.flatten()
-                else:
-                    # Perform bilinear interpolation for each time step
-                    data_values = []
+                # Init data frame with time data flattened to one-dimensional array
+                valid_time = data_raw.variables["valid_time"].values.flatten()[
+                    start_hours_skipped:-end_hours_skipped
+                ]
+                data_temp = pd.DataFrame(
+                    {
+                        "Valid time": [
+                            pd.to_datetime(t).isoformat(timespec="minutes") + "+00:00"
+                            for t in valid_time  # CDS times are UTC
+                        ],
+                        "Local time": [
+                            (pd.to_datetime(t) + tz_offset).isoformat(
+                                timespec="minutes"
+                            )
+                            + tz_label  # local time, but w/o daylight saving time
+                            for t in valid_time
+                        ],
+                    }
+                )
 
-                    for time_step in range(data_var.shape[0]):
-                        data_slice = data_var[time_step, :, :]
-                        interpolated_value = griddata(
-                            grid_points,  # points
-                            data_slice.flatten(),  # values
-                            (
-                                coordinates["lat"],
-                                coordinates["lon"],
-                            ),  # point of interest
-                            method="linear",
+                # Extract data for the variable of interest, and the coordinates
+                for var_name in var_names:
+                    data_var = getattr(data_raw, data_var_specs[var_name]["short_name"])
+                    data_values = data_var.interp(
+                        latitude=coordinates["lat"], longitude=coordinates["lon"]
+                    ).values.flatten()  # default linear interpolation, enough points for cubic is not guaranteed
+
+                    # Use only non-NaN values, must be equal to range used for valid time
+                    nan_indexes = np.isnan(data_values)
+
+                    if any(nan_indexes[start_hours_skipped:-end_hours_skipped]):
+                        raise ValueError(
+                            "Data values contain NaNs at time points for which values were expected!"
                         )
-                        data_values.append(interpolated_value)
 
-                # Convert values to numpy array, and to target units
-                data_values = np.array(data_values)
-                converted_values = cwd.convert_units(
-                    data_values, data_var_specs[var_name]["unit_conversion"]
-                )
-                data_temp[data_var_specs[var_name]["col_name_hourly"]] = (
-                    converted_values
-                )
+                    if not (
+                        all(nan_indexes[:start_hours_skipped])
+                        and all(nan_indexes[-end_hours_skipped:])
+                    ):
+                        raise ValueError(
+                            "Data values contain values at time points for which NaNs were expected!"
+                        )
 
-        if not data_hourly.empty:
-            data_hourly = pd.concat([data_hourly, data_temp], ignore_index=True)
-        else:
-            data_hourly = data_temp
+                    # Convert values to numpy array, and to target units
+                    data_values = np.array(data_values[~nan_indexes])
+                    converted_values = cwd.convert_units(
+                        data_values, data_var_specs[var_name]["unit_conversion"]
+                    )
+                    data_temp[data_var_specs[var_name]["col_name_hourly"]] = (
+                        converted_values
+                    )
+
+            if not data_hourly.empty:
+                data_hourly = pd.concat([data_hourly, data_temp], ignore_index=True)
+            else:
+                data_hourly = data_temp
 
     # Remove all data before 00:00 local time at first day (no time gaps in data was checked in construct_months_list)
     tz_offset_hours = int(tz_offset.total_seconds() / 3600)
@@ -486,7 +586,7 @@ def weather_data_to_txt_file(
         folder=target_folder,
         data_format="txt",
         time_specifier=time_range,
-        data_specifier="hourly",
+        data_specifier="hourly__" + data_format,
     )
     data_hourly.to_csv(
         file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"

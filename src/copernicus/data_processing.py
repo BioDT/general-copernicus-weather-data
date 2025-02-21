@@ -87,6 +87,7 @@ def data_processing(
     months,
     coordinates_list,
     *,
+    data_format="grib",
     download_whole_area=False,
     grid_resolution=0.1,
     final_time_resolution="daily",
@@ -100,6 +101,7 @@ def data_processing(
         months (list of int): Months list.
         coordinates_list (list of dict): List of dictionaries with 'lat' and 'lon' keys
             ({'lat': float, 'lon': float}).
+        data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
         download_whole_area (bool): Download data for whole area (default is False). If False,
             data will be downloaded for each location separately.
         grid_resolution (float): Grid resolution for area (default is 0.1).
@@ -127,8 +129,8 @@ def data_processing(
             DATA_VAR_SPECS,
             area_coordinates,
             months_list,
+            data_format=data_format,
             coordinate_digits=coordinate_digits,
-            data_format="netcdf",  # "grib",
         )
     else:
         # Configure requests to separately download data for each location (for each time period)
@@ -161,5 +163,6 @@ def data_processing(
             coordinate_digits=coordinate_digits,
             final_time_resolution=final_time_resolution,
             target_folder=target_folder,
+            data_format=data_format,
             data_source=cds_api_url,
         )

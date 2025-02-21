@@ -1,5 +1,6 @@
 astral>=3.2
 cdsapi>=0.7.2
+cfgrib>=0.9.15.0
 netCDF4>=1.6.0
 numpy>=1.19.0
 openpyxl==3.1.2
@@ -7,4 +8,4 @@ pandas>=1.5.0
 pytest>=8.3.3 
 scipy>=1.14.1
 timezonefinder>=6.2.0
-
+xarray>=2025.1.2 
