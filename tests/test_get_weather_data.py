@@ -152,7 +152,7 @@ def test_construct_request():
         "product_type": "reanalysis",
         "grid": "0.1/0.1",
         "area": [1.1, 7.8, 1.2, 7.8],
-        "data_format": "netcdf",
+        "data_format": "grib",
         "day": [
             "01",
             "02",
@@ -216,13 +216,13 @@ def test_construct_request():
         ],
         "download_format": "unarchived",
     }
+
     assert construct_request(coordinates, year, month_str, variables) == target_request
 
-    target_request["data_format"] = "new_format"
+    target_request["data_format"] = "netcdf"
+
     assert (
-        construct_request(
-            coordinates, year, month_str, variables, data_format="new_format"
-        )
+        construct_request(coordinates, year, month_str, variables, data_format="netcdf")
         == target_request
     )
 
@@ -241,7 +241,7 @@ def test_configure_data_requests():
     months_list = [(2020, "01-04"), (2020, "05")]
 
     def get_target_request(
-        coordinates, months_list, *, data_format="netcdf", precision=6
+        coordinates, months_list, *, data_format="grib", precision=6
     ):
         """Helper function to define target requests"""
         target_requests = []
@@ -272,8 +272,8 @@ def test_configure_data_requests():
 
     # Test with different data format
     assert configure_data_requests(
-        test_specs, coordinates, months_list, data_format="grib"
-    ) == get_target_request(coordinates, months_list, data_format="grib")
+        test_specs, coordinates, months_list, data_format="netcdf"
+    ) == get_target_request(coordinates, months_list, data_format="netcdf")
 
     # Test with different precision
     assert configure_data_requests(
@@ -295,7 +295,6 @@ def test_weather_data_to_txt_file():
       This test uses DATA_VAR_SPECS from copernicus.data_processing module.
       This test uses reference files created with the same function for result comparison.
     """
-
     coordinates = {"lat": 51.3919, "lon": 11.8787}
     months_list = construct_months_list([1998])
 
@@ -306,9 +305,12 @@ def test_weather_data_to_txt_file():
     for file_path in glob.glob(os.path.join("weatherDataTestFiles", "*__hourly.nc")):
         shutil.copy(file_path, "weatherDataRaw")
 
+    for file_path in glob.glob(os.path.join("weatherDataTestFiles", "*__hourly.grib")):
+        shutil.copy(file_path, "weatherDataRaw")
+
     def compare_file_contents(example_type):
         """Helper function to compare contents of generated files with expected contents."""
-        raw_example_string = f"example_from_{example_type}__"
+        raw_example_string = f"example_{example_type}__"
 
         for file_path in glob.glob(
             os.path.join("weatherDataTestFiles", raw_example_string + "*.txt")
@@ -325,16 +327,7 @@ def test_weather_data_to_txt_file():
             # Delete generated file
             os.remove(generated_file_path)
 
-    # Convert raw data (point location) to text files
-    weather_data_to_txt_file(
-        DATA_VAR_SPECS,
-        coordinates,
-        months_list,
-        target_folder="weatherDataTestFiles",
-    )
-    compare_file_contents("point")
-
-    # Convert raw data (area location) to text files
+    # Convert raw data (GRIB, area location) to text files
     weather_data_to_txt_file(
         DATA_VAR_SPECS,
         coordinates,
@@ -343,8 +336,40 @@ def test_weather_data_to_txt_file():
         coordinate_digits=1,
         target_folder="weatherDataTestFiles",
     )
-    compare_file_contents("area")
+    compare_file_contents("grib_area")
+
+    # Convert raw data (NetCDF, area location) to text files
+    weather_data_to_txt_file(
+        DATA_VAR_SPECS,
+        coordinates,
+        months_list,
+        area_coordinates=get_area_coordinates([coordinates]),
+        coordinate_digits=1,
+        target_folder="weatherDataTestFiles",
+        data_format="netcdf",
+    )
+    compare_file_contents("netcdf_area")
+
+    # Convert raw data (NetCDF, point location) to text files
+    weather_data_to_txt_file(
+        DATA_VAR_SPECS,
+        coordinates,
+        months_list,
+        target_folder="weatherDataTestFiles",
+        data_format="netcdf",
+    )
+    compare_file_contents("netcdf_point")
 
     # Clean up
     if remove_folder:
         shutil.rmtree("weatherDataRaw")
+
+    file_path = glob.glob(
+        os.path.join(
+            "weatherDataTestFiles", "lat*__hourly__grib__data_query_protocol.txt"
+        )
+    )  # GRIB protocol file created, but excluded from comparison, as time_stamps differ
+
+    assert len(file_path) == 1  # must be exactly one file
+
+    os.remove(file_path[0])
