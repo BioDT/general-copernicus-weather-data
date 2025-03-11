@@ -36,7 +36,6 @@ Sources:
 """
 
 import statistics as stats
-import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -45,6 +44,7 @@ from astral import LocationInfo
 from astral.sun import sun
 
 from copernicus import utils as ut
+from copernicus.logger_config import logger
 
 
 def convert_units(values, unit_conversion):
@@ -94,7 +94,7 @@ def par_from_net_radiation(values):
         numpy.ndarray: PAR values (unit: µmol/m²/s).
     """
     if np.any(values < 0):
-        warnings.warn("Negative values in net radiation data were corrected to 0.")
+        logger.warning("Negative values in net radiation data were corrected to 0.")
 
     values = np.maximum(values, 0)
 
@@ -138,7 +138,7 @@ def check_length_of_values_00_24(values_hourly):
             ]
 
         if len(values_checked) < length_input:
-            warnings.warn(
+            logger.warning(
                 f"Length of hourly values ({length_input}) was reduced to {len(values_checked)} for calculation of daily values."
             )
 
@@ -318,7 +318,7 @@ def daily_mean_daylight(values_hourly, dates, coordinates):
             values_daylight.append(weighted_mean)
         except Exception as e:
             # Error handling (no sunset or sunrise on given location)
-            print(f"Error: {e}.")
+            logger.error(e)
             values_daylight.append(np.nan)
 
     return np.array(values_daylight)
@@ -402,7 +402,7 @@ def hourly_to_daily(
     data_daily.to_csv(
         file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"
     )
-    print("Text file with daily resolution prepared.")
+    logger.info("Text file with daily resolution prepared.")
 
 
 def monthly_mean(values_daily, dates):
@@ -432,14 +432,16 @@ def monthly_mean(values_daily, dates):
     return np.array(monthly_means).reshape(len(unique_years), 12)
 
 
-def effective_temperature(temperature_hourly, day_length, correct_by_day_length=False):
+def effective_temperature(
+    temperature_hourly, *, correct_by_day_length=False, day_length=None
+):
     """
     Calculate daily effective temperature based on hourly temperature data and day lengths.
 
     Parameters:
         temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC).
-        day_length (numpy.ndarray): Daily day length (unit: hours).
         correct_by_day_length(bool): Apply day length correction (default is False).
+        day_length (numpy.ndarray): Daily day length (unit: hours, default is None).
 
     Returns:
         numpy.ndarray: Array of effective temperature values.
@@ -448,7 +450,12 @@ def effective_temperature(temperature_hourly, day_length, correct_by_day_length=
     t_min = daily_min_00_24(temperature_hourly)
 
     if correct_by_day_length:
-        # day length correction, Eqs. (6, 7) in Pereira and Pruitt 2004, k = 0.69
+        if day_length is None:
+            raise ValueError(
+                "Day length data must be provided for day length correction."
+            )
+
+        # Day length correction, Eqs. (6, 7) in Pereira and Pruitt 2004, k = 0.69
         day_night_ratio = day_length / (24 - day_length)
         t_eff = 0.69 / 2 * (3 * t_max - t_min) * day_night_ratio
 
@@ -676,7 +683,7 @@ def get_pet_thornthwaite(
         days_expected = ut.get_days_in_year(year)
 
         if days_found != days_expected:
-            warnings.warn(
+            logger.warning(
                 f"Length of daily data for {year} ({days_found}) differs "
                 f"from days in that year ({days_expected}). "
                 "PET by Thornthwaite equation not calculated as it requires data for full years!"
@@ -721,7 +728,7 @@ def get_pet_thornthwaite(
                     + 32.24 * temperature_used[index]
                     - 0.43 * temperature_used[index] ** 2
                 )
-                print(
+                logger.info(
                     f"PET (Thornthwaite), {dates[index]}: "
                     f"temperature {temperature_used[index]:.2f} °C > 26 °C, "
                     f"using Eq. (4): {pet_thorn[index]:.2f} mm, "

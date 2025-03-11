@@ -25,7 +25,6 @@ Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Acce
 
 import calendar
 import csv
-import warnings
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -35,6 +34,8 @@ import pandas as pd
 from astral import LocationInfo
 from astral.sun import sun
 from timezonefinder import TimezoneFinder as tzf
+
+from copernicus.logger_config import logger
 
 
 def get_days_in_year(year):
@@ -145,7 +146,7 @@ def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
                 offset_check = tz.utcoffset(datetime(year, 1, 1))
 
                 if offset != offset_check:
-                    warnings.warn(
+                    logger.warning(
                         f"Timezone offset varies among years! Using final year ({years[-1]}, offset: {format_offset(offset)})."
                     )
                     return offset
@@ -183,7 +184,7 @@ def get_day_length(coordinates, dates):
             day_lengths.append(day_length.total_seconds() / 3600)
         except Exception as e:
             # Error handling (no sunset or sunrise on given location)
-            print(f"Error: {e}.")
+            logger.error(e)
             day_lengths.append(0)
 
     return np.array(day_lengths)
@@ -230,7 +231,7 @@ def list_to_file(list_to_write, file_name, *, column_names=None):
 
         # Get column names from dictionaries (keys of first dictionary) if not provided
         if not column_names:
-            warnings.warn(
+            logger.warning(
                 "No column names provided. Using keys from first dictionary in list to obtain column names."
             )
             column_names = list(list_to_write[0].keys())
@@ -283,7 +284,7 @@ def list_to_file(list_to_write, file_name, *, column_names=None):
             "Unsupported file format. Supported formats are '.txt', '.csv' and '.xlsx'."
         )
 
-    print(f"List written to file '{file_name}'.")
+    logger.info(f"List written to file '{file_name}'.")
 
 
 def construct_weather_data_file_name(

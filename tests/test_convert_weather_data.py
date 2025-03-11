@@ -43,6 +43,7 @@ from copernicus.convert_weather_data import (
     daily_mean_00_24,
     daily_mean_daylight,
     daily_min_00_24,
+    effective_temperature,
     get_pet_thornthwaite,
     hourly_to_daily,
     monthly_mean,
@@ -466,3 +467,56 @@ def test_monthly_mean():
             )
 
     assert (monthly_mean(np.array(values), dates) == target_means).all()
+
+
+def test_effective_temperature():
+    """Test effective temperature calculation."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    year = 2021
+    temperature_hourly = []
+    dates = []
+
+    for month in range(1, 13):
+        for day in range(1, calendar.monthrange(year, month)[1] + 1):
+            for hour in range(24):
+                temperature_hourly.append(round(month + day / 100 + hour / 10000, 6))
+
+            dates.append(f"{year}-{month:02d}-{day:02d}")
+
+    # First entries of next year is needed
+    temperature_hourly.append(12.3124)
+    temperature_hourly = np.array(temperature_hourly)
+
+    # Specify expected results
+    day_length = get_day_length({"lat": 50, "lon": 10}, dates)
+    t_max = daily_max_00_24(temperature_hourly)
+    t_min = daily_min_00_24(temperature_hourly)
+    t_avg = (t_max + t_min) / 2  # approximation as used in Pereira and Pruitt 2004
+
+    # Eq. (6) in Pereira and Pruitt 2004, k = 0.69
+    target_t_eff_default = 0.5 * 0.69 * (3 * t_max - t_min)
+    target_t_eff_corrected = target_t_eff_default * (day_length / (24 - day_length))
+    target_t_eff_corrected = np.maximum(
+        target_t_eff_corrected, t_avg
+    )  # t_eff not lower than t_avg
+    target_t_eff_corrected = np.minimum(
+        target_t_eff_corrected, t_max
+    )  # t_eff not higher than t_max
+
+    assert all(
+        np.round(effective_temperature(temperature_hourly), precision)
+        == np.round(target_t_eff_default, precision)
+    )
+    assert all(
+        np.round(
+            effective_temperature(
+                temperature_hourly, correct_by_day_length=True, day_length=day_length
+            ),
+            precision,
+        )
+        == np.round(target_t_eff_corrected, precision)
+    )
+
+    # Test missing day length data
+    with pytest.raises(ValueError):
+        effective_temperature(temperature_hourly, correct_by_day_length=True)

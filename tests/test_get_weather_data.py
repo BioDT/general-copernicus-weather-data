@@ -2,6 +2,8 @@
 Module Name: test_get_weather_data.py
 Description: Test get_weather_data functions of copernicus building block.
 
+Note: 'download_weather_data' function for download from CDS API not tested here.
+
 Developed in the BioDT project by Thomas Banitz (UFZ) with contributions by Franziska Taubert (UFZ)
 and Tuomas Rossi (CSC).
 

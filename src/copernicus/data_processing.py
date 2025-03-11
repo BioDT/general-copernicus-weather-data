@@ -46,6 +46,7 @@ Data source:
 from types import MappingProxyType
 
 from copernicus import get_weather_data as gwd
+from copernicus.logger_config import logger
 
 # Define data variable specifications for download variables, including:
 #     long_name (str): Long name of the variable.
@@ -119,8 +120,8 @@ def data_processing(
         area_coordinates = gwd.get_area_coordinates(
             coordinates_list, resolution=grid_resolution
         )
-        print("Requesting weather data for area ...")
-        print(
+        logger.info("Requesting weather data for area ...")
+        logger.info(
             f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
             f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']}",
         )
@@ -135,12 +136,14 @@ def data_processing(
     else:
         # Configure requests to separately download data for each location (for each time period)
         area_coordinates = None
-        print("Requesting weather data for single locations ...")
+        logger.info("Requesting weather data for single locations ...")
         coordinate_digits = 6
         data_requests = []
 
         for coordinates in coordinates_list:
-            print(f"latitude: {coordinates['lat']}, longitude: {coordinates['lon']}")
+            logger.info(
+                f"latitude: {coordinates['lat']}, longitude: {coordinates['lon']}"
+            )
             location_as_area = gwd.get_area_coordinates(
                 [coordinates], resolution=0, map_to_grid=False
             )

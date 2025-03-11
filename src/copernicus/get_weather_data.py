@@ -57,6 +57,7 @@ from scipy.interpolate import griddata
 
 from copernicus import convert_weather_data as cwd
 from copernicus import utils as ut
+from copernicus.logger_config import logger
 
 
 def construct_months_list(years, months=list(range(1, 13))):
@@ -91,7 +92,7 @@ def construct_months_list(years, months=list(range(1, 13))):
     if len(years) > 1:
         # Force complete months list if more than one year
         if months != list(range(1, 13)):
-            print(
+            logger.info(
                 f"All months required for multiple years! Replacing months list ({months}) by [1, 2, ... 12]."
             )
             months = list(range(1, 13))
@@ -321,15 +322,21 @@ def download_weather_data(data_requests):
 
     Parameters:
         list: List of data requests and corresponding file names.
+
+    Returns:
+        str: URL of CDS API client.
     """
     # Fragments for daily requests in commits before 2023-11-08.
-    # Asynchronous option? https://docs.python.org/3/library/asyncio.html
+
+    # Create folder for raw data if missing (all files in request list have the same folder)
+    Path(data_requests[0][1]).parent.mkdir(parents=True, exist_ok=True)
 
     client = cdsapi.Client()
 
     for request, file_name in data_requests:
-        Path(file_name).parent.mkdir(parents=True, exist_ok=True)
-        client.retrieve("reanalysis-era5-land", request, file_name)
+        # Request data if file does not exist
+        if not os.path.exists(file_name):
+            client.retrieve("reanalysis-era5-land", request, file_name)
 
     return client.url
 
@@ -503,7 +510,9 @@ def weather_data_to_txt_file(
             )
 
             # Open GRIB file and extract variables
-            with xr.load_dataset(file_name, engine="cfgrib") as data_raw:
+            with xr.open_dataset(
+                file_name, engine="cfgrib", decode_timedelta=xr.coders.CFDatetimeCoder
+            ) as data_raw:
                 # Get extra info from history attribute
                 extra_info = getattr(data_raw, "history").split(" ", 1)[1]
                 data_query_protocol.append(
@@ -537,12 +546,18 @@ def weather_data_to_txt_file(
                         latitude=coordinates["lat"], longitude=coordinates["lon"]
                     ).values.flatten()  # default linear interpolation, enough points for cubic is not guaranteed
 
-                    # Use only non-NaN values, must be equal to range used for valid time
+                    # Check for non-NaN values, should be equal to range used for valid time, but NaNs may occur in raw data
                     nan_indexes = np.isnan(data_values)
 
                     if any(nan_indexes[start_hours_skipped:-end_hours_skipped]):
-                        raise ValueError(
-                            "Data values contain NaNs at time points for which values were expected!"
+                        nan_times = data_temp["Valid time"][
+                            np.where(
+                                nan_indexes[start_hours_skipped:-end_hours_skipped]
+                            )[0]
+                        ]
+                        logger.warning(
+                            f"Data values for '{var_name}' contain NaNs at time points for which values were expected: "
+                            f"{', '.join([t for t in nan_times])}",
                         )
 
                     if not (
@@ -550,11 +565,13 @@ def weather_data_to_txt_file(
                         and all(nan_indexes[-end_hours_skipped:])
                     ):
                         raise ValueError(
-                            "Data values contain values at time points for which NaNs were expected!"
+                            f"Data values for '{var_name}' contain values at time points for which NaNs were expected!"
                         )
 
                     # Convert values to numpy array, and to target units
-                    data_values = np.array(data_values[~nan_indexes])
+                    data_values = np.array(
+                        data_values[start_hours_skipped:-end_hours_skipped]
+                    )
                     converted_values = cwd.convert_units(
                         data_values, data_var_specs[var_name]["unit_conversion"]
                     )
@@ -591,7 +608,7 @@ def weather_data_to_txt_file(
     data_hourly.to_csv(
         file_name, sep="\t", index=False, float_format="%.6f", na_rep="nan"
     )
-    print("Text file with hourly resolution prepared.")
+    logger.info("Text file with hourly resolution prepared.")
 
     # Save data query protocal if existing
     if data_query_protocol:
