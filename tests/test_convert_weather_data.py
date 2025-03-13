@@ -43,14 +43,22 @@ from copernicus.convert_weather_data import (
     daily_mean_00_24,
     daily_mean_daylight,
     daily_min_00_24,
+    delta_svp,
     effective_temperature,
+    exponent_a,
+    gamma_from_atmospheric_pressure,
+    get_pet_fao,
     get_pet_thornthwaite,
+    heat_index,
     hourly_to_daily,
     monthly_mean,
     par_from_net_radiation,
+    svp_from_temperature,
+    wind_speed_from_u_v,
+    wind_speed_height_change,
 )
 from copernicus.data_processing import DATA_VAR_SPECS
-from copernicus.utils import get_day_length, get_time_zone
+from copernicus.utils import get_day_length, get_days_in_year, get_time_zone
 
 
 def test_convert_units():
@@ -327,12 +335,12 @@ def test_hourly_to_daily():
     dates_UTC = {"+00:00": [], "+02:00": [], "-02:00": []}
     year = 2021
     coordinates = {"lat": 50, "lon": 10}
-    values_continuous = []
+    values_hourly = []
 
     for month in range(1, 13):
         for day in range(1, calendar.monthrange(year, month)[1] + 1):
             for hour in range(24):
-                values_continuous.append(round(month + day / 100 + hour / 10000, 6))
+                values_hourly.append(round(month + day / 100 + hour / 10000, 6))
 
                 date_str = f"2021-{month:02d}-{day:02d}T{hour:02d}:00"
                 dates_UTC["+00:00"].append(f"{date_str}+00:00")
@@ -340,7 +348,7 @@ def test_hourly_to_daily():
                 dates_local["-02:00"].append(f"{date_str}-02:00")  # 2 hours behind
 
     # First entries of next year is needed
-    values_continuous.append(12.3124)
+    values_hourly.append(12.3124)
 
     dates_UTC["+00:00"].append("2022-01-01T00:00+00:00")
     dates_local["+00:00"] = dates_UTC["+00:00"]
@@ -385,7 +393,7 @@ def test_hourly_to_daily():
                 "Valid time": dates_UTC[offset_str],
                 "Local time": dates_local[offset_str],
                 "Precipitation[mm] (acc.)": values_accumulated_UTC[offset_str],
-                "Temperature[degC]": np.array(values_continuous),
+                "Temperature[degC]": np.array(values_hourly),
                 "SSRD[Jm-2] (acc.)": values_accumulated_UTC[offset_str] * 100000,
             }
         )
@@ -520,3 +528,297 @@ def test_effective_temperature():
     # Test missing day length data
     with pytest.raises(ValueError):
         effective_temperature(temperature_hourly, correct_by_day_length=True)
+
+
+def test_wind_speed_from_u_v():
+    """Test wind_speed_from_u_v function."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    u = np.array([0, 1, 0, -1, 2])
+    v = np.array([1, 0, -1, 0, 2])
+    wind_speed = np.array([1, 1, 1, 1, np.sqrt(8)])
+
+    assert all(
+        np.round(wind_speed_from_u_v(u, v), precision)
+        == np.round(wind_speed, precision)
+    )
+
+
+def test_wind_speed_height_change():
+    """Test wind_speed_height_change function."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    wind_speed = np.array([1, 2, 3, 4, 5])
+
+    # Helper function for conversion factor, log wind profile, no displacement height
+    def conversion_factor(height, target_height, rougness_length):
+        return np.log(target_height / rougness_length) / np.log(
+            height / rougness_length
+        )
+
+    # Test with default values
+    assert all(
+        np.round(wind_speed_height_change(wind_speed), precision)
+        == np.round(wind_speed * conversion_factor(10, 2, 0.03), precision)
+    )
+
+    # Test with custom values
+    assert all(
+        np.round(
+            wind_speed_height_change(wind_speed, target_height=5, roughness_length=0.1),
+            precision,
+        )
+        == np.round(wind_speed * conversion_factor(10, 5, 0.1), precision)
+    )
+
+    assert all(
+        np.round(
+            wind_speed_height_change(
+                wind_speed, initial_height=50, target_height=5, roughness_length=0.001
+            ),
+            precision,
+        )
+        == np.round(wind_speed * conversion_factor(50, 5, 0.001), precision)
+    )
+
+    # Test no change for same height
+    assert all(
+        np.round(
+            wind_speed_height_change(wind_speed, initial_height=5, target_height=5),
+            precision,
+        )
+        == wind_speed
+    )
+
+    # Test invalid roughness length
+    with pytest.raises(ValueError):
+        wind_speed_height_change(wind_speed, roughness_length=0)
+
+
+def test_svp_from_temperature():
+    """Test saturation vapor pressure calculation from temperature."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    temperature = np.array([-20, 0, 10, 40])
+    svp = np.round(
+        0.6108 * np.exp(17.27 * temperature / (temperature + 237.3)), precision
+    )
+
+    assert all(np.round(svp_from_temperature(temperature), precision) == svp)
+
+
+def test_delta_svp():
+    """Test delta saturation vapor pressure calculation from temperature."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    temperature = np.array([-20, 0, 10, 40])
+    delta_svp_target = np.round(
+        4098
+        * 0.6108
+        * np.exp(17.27 * temperature / (temperature + 237.3))
+        / (temperature + 237.3) ** 2,
+        precision,
+    )
+
+    assert all(np.round(delta_svp(temperature), precision) == delta_svp_target)
+
+
+def test_gamma_from_atmospheric_pressure():
+    """Test gamma calculation from atmospheric pressure."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    pressure = np.array([0, 100000, 110000])
+    gamma_target = np.round(0.665e-3 * pressure, precision)
+
+    assert all(
+        np.round(gamma_from_atmospheric_pressure(pressure), precision) == gamma_target
+    )
+
+
+def test_heat_index():
+    """Test heat index calculation."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    temperature_monthly = np.array(
+        [np.arange(1, 13), np.arange(-5, 7), np.arange(25, 37)]
+    )
+    target_indexes = np.round(
+        np.sum((0.2 * temperature_monthly.clip(min=0)) ** 1.514, axis=1), precision
+    )
+
+    assert all(np.round(heat_index(temperature_monthly), precision) == target_indexes)
+
+    # Invalid shape of temperature data
+    with pytest.raises(ValueError):
+        heat_index(temperature_monthly[:, :-1])
+
+
+def test_exponent_a():
+    """Test exponent_a calculation."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    indexes = np.array([0, 10, 200])
+    target_exponents = np.round(
+        6.75e-7 * indexes**3 - 7.71e-5 * indexes**2 + 0.017912 * indexes + 0.49239,
+        precision,
+    )
+
+    assert all(np.round(exponent_a(indexes), precision) == target_exponents)
+
+
+def test_get_pet_fao():
+    """Test get_pet_fao calculation."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    year = 2021
+    values_daily = np.arange(1, get_days_in_year(year) + 1)
+    alternating_sign = np.array(
+        [1 if i % 2 == 0 else -1 for i in range(len(values_daily))]
+    )
+    values_hourly = []
+
+    for month in range(1, 13):
+        for day in range(1, calendar.monthrange(year, month)[1] + 1):
+            for hour in range(24):
+                values_hourly.append(round(month + day / 100 + hour / 10000, 6))
+
+    # First entry of next year is needed
+    values_hourly.append(12.3124)
+    values_hourly = np.array(values_hourly)
+
+    # Create example input data
+    ssr_daily = values_daily * 100000 * 1e-6
+    slhf_daily = values_daily * 10000 * alternating_sign
+    temperature_hourly = values_hourly
+    temperature_daily = daily_mean_00_24(temperature_hourly)
+    wind_speed_daily = values_daily / 20
+    dewpoint_temperature_hourly = temperature_hourly - 2
+    surface_pressure_daily = 86 + values_daily / 100
+
+    # Calculate expected results, Eq. (6) in FAO 56
+    gamma = gamma_from_atmospheric_pressure(surface_pressure_daily)
+    delta = delta_svp(temperature_daily)
+    target_pet = np.round(
+        np.maximum(
+            (
+                0.408
+                * delta
+                * (
+                    convert_units(ssr_daily, "_to_Mega")
+                    - convert_units(
+                        -slhf_daily, "_to_Mega"
+                    )  # switch direction for heat flux
+                )
+                + gamma
+                * 900
+                / convert_units(temperature_daily, "Celsius_to_Kelvin")
+                * wind_speed_daily
+                * (
+                    daily_mean_00_24(svp_from_temperature(temperature_hourly))
+                    - daily_mean_00_24(
+                        svp_from_temperature(dewpoint_temperature_hourly)
+                    )
+                )
+            )
+            / (delta + gamma * (1 + 0.34 * wind_speed_daily)),
+            0,
+        ),
+        precision,
+    )
+    generated_pet = np.round(
+        get_pet_fao(
+            ssr_daily,
+            slhf_daily,
+            temperature_daily,
+            temperature_hourly,
+            wind_speed_daily,
+            dewpoint_temperature_hourly,
+            surface_pressure_daily,
+        ),
+        precision,
+    )
+
+    assert all(generated_pet == target_pet)
+
+
+def test_get_pet_thornthwaite():
+    """Test get_pet_thornthwaite calculation."""
+    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
+    year = 2021
+    temperature_hourly = []
+    dates_local = []
+
+    for month in range(1, 13):
+        for day in range(1, calendar.monthrange(year, month)[1] + 1):
+            for hour in range(24):
+                temperature_hourly.append(round(month + day / 100 + hour / 10000, 6))
+
+            dates_local.append(f"{year}-{month:02d}-{day:02d}")
+
+    # First entry of next year is needed
+    temperature_hourly.append(12.3124)
+    temperature_hourly = np.array(temperature_hourly)
+
+    temperature_daily = daily_mean_00_24(temperature_hourly)
+    effective_temperature_daily = effective_temperature(temperature_hourly)
+    day_length = get_day_length({"lat": 50, "lon": 10}, dates_local)
+
+    # Calculate expected results, Eq. (1)-(5) in Pereira and Pruitt 2004,
+    # with and without effective temperature
+    heat_index_yearly = heat_index(monthly_mean(temperature_daily, dates_local))
+    exponent_a_yearly = exponent_a(heat_index_yearly)
+    target_pet = np.full_like(day_length, np.nan)
+    target_pet_t_eff = np.full_like(day_length, np.nan)
+
+    for day_index in range(get_days_in_year(year)):
+        if temperature_daily[day_index] < 0:
+            target_pet[day_index] = 0
+        elif temperature_daily[day_index] < 26:
+            target_pet[day_index] = (
+                16
+                * (10 * temperature_daily[day_index] / heat_index_yearly)
+                ** exponent_a_yearly
+                * day_length[day_index]
+                / 360
+            )
+        else:
+            target_pet[day_index] = (
+                -415.85
+                + 32.24 * temperature_daily[day_index]
+                - 0.43 * temperature_daily[day_index] ** 2
+            )
+
+        if effective_temperature_daily[day_index] < 0:
+            target_pet_t_eff[day_index] = 0
+        elif effective_temperature_daily[day_index] < 26:
+            target_pet_t_eff[day_index] = (
+                16
+                * (10 * effective_temperature_daily[day_index] / heat_index_yearly)
+                ** exponent_a_yearly
+                * day_length[day_index]
+                / 360
+            )
+        else:
+            target_pet_t_eff[day_index] = (
+                -415.85
+                + 32.24 * effective_temperature_daily[day_index]
+                - 0.43 * effective_temperature_daily[day_index] ** 2
+            )
+
+    target_pet = np.round(target_pet, precision)
+    target_pet_t_eff = np.round(target_pet_t_eff, precision)
+
+    generated_pet = np.round(
+        get_pet_thornthwaite(
+            temperature_daily,
+            temperature_hourly,
+            day_length,
+            dates_local,
+            use_effective_temperature=False,
+        ),
+        precision,
+    )
+    generated_pet_t_eff = np.round(
+        get_pet_thornthwaite(
+            temperature_daily,
+            temperature_hourly,
+            day_length,
+            dates_local,
+        ),
+        precision,
+    )
+
+    assert all(generated_pet == target_pet)
+    assert all(generated_pet_t_eff == target_pet_t_eff)

@@ -78,7 +78,11 @@ def convert_units(values, unit_conversion):
         elif unit_conversion == "d-1_to_s-1":
             return values / (24 * 60 * 60)
         else:
-            raise ValueError(f"Unit conversion '{unit_conversion}' not found!")
+            try:
+                raise ValueError(f"Unit conversion '{unit_conversion}' not found!")
+            except ValueError as e:
+                logger.error(e)
+                raise
     else:
         return values
 
@@ -123,9 +127,13 @@ def check_length_of_values_00_24(values_hourly):
     length_input = len(values_hourly)
 
     if length_input < 25:
-        raise ValueError(
-            f"Length of hourly values ({length_input}) must be at least 25 for calculation of daily values."
-        )
+        try:
+            raise ValueError(
+                f"Length of hourly values ({length_input}) must be at least 25 for calculation of daily values."
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
     else:
         # COPY to prevent changing the original 'values_hourly' variable!
         values_checked = values_hourly.copy()
@@ -451,9 +459,13 @@ def effective_temperature(
 
     if correct_by_day_length:
         if day_length is None:
-            raise ValueError(
-                "Day length data must be provided for day length correction."
-            )
+            try:
+                raise ValueError(
+                    "Day length data must be provided for day length correction."
+                )
+            except ValueError as e:
+                logger.error(e)
+                raise
 
         # Day length correction, Eqs. (6, 7) in Pereira and Pruitt 2004, k = 0.69
         day_night_ratio = day_length / (24 - day_length)
@@ -483,22 +495,35 @@ def wind_speed_from_u_v(u_component, v_component):
     return np.sqrt(u_component**2 + v_component**2)
 
 
-def wind_speed_height_change(wind_speed, height1=10, height2=2, z0=0.03):
+def wind_speed_height_change(
+    wind_speed, *, initial_height=10, target_height=2, roughness_length=0.03
+):
     """
     Calculate wind speed change due to height difference using log wind profile.
 
     Parameters:
-        wind_speed (float or numpy.ndarray): Wind speed at height1 (unit: m/s).
-        height1 (float, optional): Initial height. Default is 10 (unit: m).
-        height2 (float, optional): Final height. Default is 2 (unit: m).
-        z0 (float, optional): Roughness length. Default is 0.03 (unit: m).
+        wind_speed (float or numpy.ndarray): Wind speed at initial height (unit: m/s).
+        initial_height (float, optional): Initial height. Default is 10 (unit: m).
+        target_height (float, optional): Final height. Default is 2 (unit: m).
+        roughness_length (float, optional): Roughness length (z0). Default is 0.03 (unit: m).
 
     Returns:
-        numpy.ndarray: Wind speed at height2 (unit: m/s).
+        numpy.ndarray: Wind speed at target height (unit: m/s).
     """
+    if roughness_length <= 0:
+        try:
+            raise ValueError("Roughness length must be larger than 0.")
+        except ValueError as e:
+            logger.error(e)
+            raise
+
     # Remark: roughness length = 0.03 used, as most established for grass and similar,
     #         Eq. (47) in Allen et al. 1998 uses slightly lower value (~0.017)
-    return wind_speed * np.log(height2 / z0) / np.log(height1 / z0)
+    return (
+        wind_speed
+        * np.log(target_height / roughness_length)
+        / np.log(initial_height / roughness_length)
+    )
 
 
 def svp_from_temperature(temperature):
@@ -556,7 +581,11 @@ def heat_index(temperature_monthly):
         numpy.ndarray: Heat index values for each year.
     """
     if temperature_monthly.shape[1] != 12:
-        raise ValueError("Length of monthly temperature data must be 12.")
+        try:
+            raise ValueError("Length of monthly temperature data must be 12.")
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     return np.sum(np.power(np.maximum(0, 0.2 * temperature_monthly), 1.514), axis=1)
 
@@ -594,13 +623,13 @@ def get_pet_fao(
     Eq. (13) in Allen et al. 1998
 
     Parameters:
-        ssr (numpy.ndarray): Surface net solar radiation (unit: J/m²/d).
-        slhf (numpy.ndarray): Surface latent heat flux (unit: J/m²/d).
+        ssr (numpy.ndarray): Daily surface net solar radiation (unit: J/m²/d).
+        slhf (numpy.ndarray): Daily surface latent heat flux (unit: J/m²/d).
         temperature (numpy.ndarray): Daily mean temperature (unit: degC).
         temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC).
-        wind_speed_2m (numpy.ndarray): Wind speed at 2 meters height (unit: m/s).
+        wind_speed_2m (numpy.ndarray): Daily wind speed at 2 meters height (unit: m/s).
         dewpoint_temperature_hourly (numpy.ndarray): Hourly dewpoint temperature (unit: degC).
-        surface_pressure (numpy.ndarray): Surface atmospheric pressure (unit: kPa).
+        surface_pressure (numpy.ndarray): Daily surface atmospheric pressure (unit: kPa).
 
     Returns:
         numpy.ndarray: Potential Evapotranspiration (PET) values (unit: mm).
@@ -635,7 +664,7 @@ def get_pet_fao(
 
     gamma = gamma_from_atmospheric_pressure(surface_pressure)
 
-    # Eq. (13) in Allen et al. 1998
+    # Eq. (6) in Allen et al. 1998
     pet_fao = (
         0.408 * delta * (ssr_megaJ - slhf_megaJ)
         + gamma * 900 / temperature_kelvin * wind_speed_2m * (svp - avp)
@@ -695,10 +724,15 @@ def get_pet_thornthwaite(
     heat_index_yearly = heat_index(temperature_monthly)
     exponent_a_yearly = exponent_a(heat_index_yearly)
     correct_to_daily = day_length / 360  # Eq. (5) in Pereira and Pruitt 2004
+
+    # Correct to effective daily temperature if specified
+    # In both cases:
+    # Use daily temperature values for calculation of "standard month of 30 days,
+    # each day with 12 h of photoperiod" (Eq. (1) in Pereira and Pruitt 2004)
+    # i.e. assume the temperature of the given day as average for the whole reference month,
+    # than correct PET to daily, which includes the actual day length
     temperature_used = (
-        effective_temperature(
-            temperature_hourly, day_length, correct_by_day_length=False
-        )
+        effective_temperature(temperature_hourly)
         if use_effective_temperature
         else temperature
     )

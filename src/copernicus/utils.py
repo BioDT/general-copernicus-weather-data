@@ -78,9 +78,13 @@ def format_month_str(month_str):
     """
     # Check if month_str contains a comma, raise error if so
     if "," in month_str:
-        raise ValueError(
-            f"Comma not supported in 'month_str' ({month_str}). Use hyphen for month range."
-        )
+        try:
+            raise ValueError(
+                f"Comma not supported in 'month_str' ({month_str}). Use hyphen for month range."
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     month_items = month_str.split("-")
 
@@ -91,7 +95,11 @@ def format_month_str(month_str):
             f"{m:02}" for m in range(int(month_items[0]), int(month_items[1]) + 1)
         ]
     else:
-        raise ValueError(f"Wrong format of 'month_str' ({month_str})!")
+        try:
+            raise ValueError(f"Wrong format of 'month_str' ({month_str})!")
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     return month_formatted
 
@@ -155,7 +163,11 @@ def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
 
         return tz
 
-    raise ValueError("Time zone not found.")
+    try:
+        raise ValueError("Time zone not found.")
+    except ValueError as e:
+        logger.error(e)
+        raise
 
 
 def get_day_length(coordinates, dates):
@@ -205,7 +217,11 @@ def get_file_suffix(data_format):
     elif data_format in ["grib", "txt"]:
         return f".{data_format}"
     else:
-        raise ValueError("Unsupported data format.")
+        try:
+            raise ValueError("Unsupported data format.")
+        except ValueError as e:
+            logger.error(e)
+            raise
 
 
 def list_to_file(list_to_write, file_name, *, column_names=None):
@@ -225,9 +241,13 @@ def list_to_file(list_to_write, file_name, *, column_names=None):
     # Check if list_to_write contains dictionaries
     if any(isinstance(entry, dict) for entry in list_to_write):
         if not all(isinstance(entry, dict) for entry in list_to_write):
-            raise ValueError(
-                "All entries in the list must be either dictionaries or not dictionaries. Cannot write list with mixed types."
-            )
+            try:
+                raise ValueError(
+                    "All entries in the list must be either dictionaries or not dictionaries. Cannot write list with mixed types."
+                )
+            except ValueError as e:
+                logger.error(e)
+                raise
 
         # Get column names from dictionaries (keys of first dictionary) if not provided
         if not column_names:
@@ -237,9 +257,13 @@ def list_to_file(list_to_write, file_name, *, column_names=None):
             column_names = list(list_to_write[0].keys())
 
         if not column_names:
-            raise ValueError(
-                "No column names provided and no keys found in dictionaries to obtain column names. Cannot write list."
-            )
+            try:
+                raise ValueError(
+                    "No column names provided and no keys found in dictionaries to obtain column names. Cannot write list."
+                )
+            except ValueError as e:
+                logger.error(e)
+                raise
 
         # Convert dictionaries to lists of values based on column_names, empty string if key not found
         list_to_write = [
@@ -250,9 +274,13 @@ def list_to_file(list_to_write, file_name, *, column_names=None):
         if column_names and not all(
             len(entry) == len(column_names) for entry in list_to_write
         ):
-            raise ValueError(
-                "All entries in the list must have the same length as the column names list."
-            )
+            try:
+                raise ValueError(
+                    "All entries in the list must have the same length as the column names list."
+                )
+            except ValueError as e:
+                logger.error(e)
+                raise
 
     file_path = Path(file_name)
     file_suffix = file_path.suffix.lower()
@@ -280,9 +308,13 @@ def list_to_file(list_to_write, file_name, *, column_names=None):
         df = pd.DataFrame(list_to_write, columns=column_names)
         df.to_excel(file_path, index=False)
     else:
-        raise ValueError(
-            "Unsupported file format. Supported formats are '.txt', '.csv' and '.xlsx'."
-        )
+        try:
+            raise ValueError(
+                "Unsupported file format. Supported formats are '.txt', '.csv' and '.xlsx'."
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     logger.info(f"List written to file '{file_name}'.")
 
@@ -336,20 +368,28 @@ def construct_weather_data_file_name(
         elif coordinates["lon_start"] < coordinates["lon_end"]:
             formatted_lon = f"lon{coordinates['lon_start']:.{precision}f}_{coordinates['lon_end']:.{precision}f}"
         else:
-            raise ValueError(
-                f"Longitude range not correctly defined. Start value ({coordinates['lon_start']}) "
-                f"must be not higher than end value ({coordinates['lon_end']})."
-            )
+            try:
+                raise ValueError(
+                    f"Longitude range not correctly defined. Start value ({coordinates['lon_start']}) "
+                    f"must be not higher than end value ({coordinates['lon_end']})."
+                )
+            except ValueError as e:
+                logger.error(e)
+                raise
     # Coordinates for single point
     elif all(key in coordinates for key in ["lat", "lon"]):
         formatted_lat = f"lat{coordinates['lat']:.{precision}f}"
         formatted_lon = f"lon{coordinates['lon']:.{precision}f}"
     else:
-        raise ValueError(
-            "Coordinates not correctly defined. Please provide as dictionary, either for area "
-            "({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float}) "
-            "or for a single point ({'lat': float, 'lon': float})."
-        )
+        try:
+            raise ValueError(
+                "Coordinates not correctly defined. Please provide as dictionary, either for area "
+                "({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float}) "
+                "or for a single point ({'lat': float, 'lon': float})."
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     file_suffix = get_file_suffix(data_format)
     file_name = (

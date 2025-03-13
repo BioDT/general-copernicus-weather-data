@@ -80,14 +80,22 @@ def construct_months_list(years, months=list(range(1, 13))):
     months = list(np.unique(months))
 
     if months[0] < 1 or months[-1] > 12:
-        raise ValueError(
-            f"Month has invalid entries ({months}). Please provide only values between 1 and 12!"
-        )
+        try:
+            raise ValueError(
+                f"Month has invalid entries ({months}). Please provide only values between 1 and 12!"
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     if years != list(range(years[0], years[-1] + 1)):
-        raise ValueError(
-            f"Years list has gaps ({years}). Please provide consecutive years!"
-        )
+        try:
+            raise ValueError(
+                f"Years list has gaps ({years}). Please provide consecutive years!"
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     if len(years) > 1:
         # Force complete months list if more than one year
@@ -98,9 +106,13 @@ def construct_months_list(years, months=list(range(1, 13))):
             months = list(range(1, 13))
     else:
         if months != list(range(months[0], months[-1] + 1)):
-            raise ValueError(
-                f"Month list has gaps ({months}). Please provide consecutive months!"
-            )
+            try:
+                raise ValueError(
+                    f"Month list has gaps ({months}). Please provide consecutive months!"
+                )
+            except ValueError as e:
+                logger.error(e)
+                raise
 
     for year in years:
         # Add month before first month of first year (can be December of previous year)
@@ -146,19 +158,31 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
         ValueError: If resolution is not 0.1 or 0.25.
     """
     if not isinstance(resolution, (int, float)) or resolution < 0:
-        raise ValueError("Resolution must be a number greater than or equal to 0!")
+        try:
+            raise ValueError("Resolution must be a number greater than or equal to 0!")
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     if map_to_grid and resolution not in [0.1, 0.25]:
-        raise ValueError("Grid resolution must be 0.1 or 0.25 degrees!")
+        try:
+            raise ValueError("Grid resolution must be 0.1 or 0.25 degrees!")
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     # Check if each entry in the list has 'lat' and 'lon' keys
     if not all(
         all(key in coordinates for key in ["lat", "lon"])
         for coordinates in coordinates_list
     ):
-        raise ValueError(
-            "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
-        )
+        try:
+            raise ValueError(
+                "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
 
     lat_list = [coordinates["lat"] for coordinates in coordinates_list]
     lon_list = [coordinates["lon"] for coordinates in coordinates_list]
