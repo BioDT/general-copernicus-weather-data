@@ -1,15 +1,26 @@
 ## general-copernicus-weather-data
-Building block for obtaining selected weather data at given location
-   (0.1° x 0.1° spatial resolution) for desired time periods, at hourly
-   resolution, from Copernicus ERA5-Land dataset.
+Building block for obtaining selected weather data at given location(s) at hourly resolution, 
+   from Copernicus ERA5-Land dataset (interpolated from 0.1° x 0.1° or 0.25° x 0.25° spatial resolution)
+   for desired time periods. 
+   Optional conversion to and calculation of specific target variables at daily resolution. 
 
 ## Usage
-Call "data_processing(years, months, coordinates, *, final_time_resolution=final_time_resolution, target_folder=target_folder)
+Call "data_processing(years, months, coordinates, *,
+    data_format="grib",
+    download_whole_area=False,
+    grid_resolution=0.1,
+    final_time_resolution="daily",
+    target_folder=None)"
 
 Parameters:
 - years (list of int): Years list.
 - months (list of int): Months list.
-- coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+- coordinates_list (list of dict): List of dictionaries with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
+
+- data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
+- download_whole_area (bool): Download data for whole area covering all locations from the coordinates list (default is False). 
+  If False, data will be downloaded for each location separately.
+- grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
 - final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
 - target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
 

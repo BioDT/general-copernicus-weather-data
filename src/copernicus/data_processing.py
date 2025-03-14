@@ -1,8 +1,9 @@
 """
 Module Name: data_processing.py
-Description: Function for obtaining selected weather data at given location
-             (0.1° x 0.1° spatial resolution) for desired time periods, at hourly
-             resolution, from Copernicus ERA5-Land dataset.
+Description: Function for obtaining selected weather data at given location(s) at hourly resolution,
+   from Copernicus ERA5-Land dataset (interpolated from 0.1° x 0.1° or 0.25° x 0.25° spatial resolution)
+   for desired time periods.
+   Optional conversion to and calculation of specific target variables at daily resolution.
 
 Developed in the BioDT project by Thomas Banitz (UFZ) with contributions by Franziska Taubert (UFZ)
 and Tuomas Rossi (CSC).
@@ -103,9 +104,9 @@ def data_processing(
         coordinates_list (list of dict): List of dictionaries with 'lat' and 'lon' keys
             ({'lat': float, 'lon': float}).
         data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
-        download_whole_area (bool): Download data for whole area (default is False). If False,
-            data will be downloaded for each location separately.
-        grid_resolution (float): Grid resolution for area (default is 0.1).
+        download_whole_area (bool): Download data for whole area covering all locations from the coordinates list
+          (default is False). If False, data will be downloaded for each location separately.
+        grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
         final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
         target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
 
