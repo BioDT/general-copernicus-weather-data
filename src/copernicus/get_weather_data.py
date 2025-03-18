@@ -358,8 +358,11 @@ def download_weather_data(data_requests):
     client = cdsapi.Client()
 
     for request, file_name in data_requests:
-        # Request data if file does not exist
-        if not os.path.exists(file_name):
+        # Request data if file does not exist or is older than Jan 1 2025
+        if (
+            not os.path.exists(file_name)
+            or os.path.getmtime(file_name) < datetime(2025, 1, 1).timestamp()
+        ):
             client.retrieve("reanalysis-era5-land", request, file_name)
 
     return client.url

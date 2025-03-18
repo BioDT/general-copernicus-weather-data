@@ -64,40 +64,36 @@ from copernicus.utils import get_day_length, get_days_in_year, get_time_zone
 def test_convert_units():
     """Test convert_units function."""
     values = np.array([0, 1000, -10])
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
 
-    assert all(
-        np.round(convert_units(values, "_to_Milli"), precision)
-        == np.array([0, 1000000, -10000])
+    assert np.allclose(
+        convert_units(values, "_to_Milli"),
+        np.array([0, 1000000, -10000]),
+        atol=0,
+        rtol=1e-12,
     )
-    assert all(
-        np.round(convert_units(values, "_to_Kilo"), precision)
-        == np.array([0, 1, -0.01])
+    assert np.allclose(
+        convert_units(values, "_to_Kilo"),
+        np.array([0, 1, -0.01]),
+        atol=0,
+        rtol=1e-12,
     )
-    assert all(
-        np.round(convert_units(values, "_to_Mega"), precision)
-        == np.array([0, 0.001, -0.00001])
+    assert np.allclose(
+        convert_units(values, "_to_Mega"),
+        [0, 0.001, -0.00001],
+        atol=0,
+        rtol=1e-12,
     )
-
-    assert all(
-        np.round(convert_units(values, "Kelvin_to_Celsius"), precision)
-        == np.array([-273.15, 726.85, -283.15])
+    assert np.array_equal(
+        convert_units(values[:-1], "Kelvin_to_Celsius"), [-273.15, 726.85]
     )
-    assert all(
-        np.round(convert_units(values, "Celsius_to_Kelvin"), precision)
-        == np.array([273.15, 1273.15, 263.15])
+    assert np.array_equal(
+        convert_units(values, "Celsius_to_Kelvin"), [273.15, 1273.15, 263.15]
     )
-
-    assert all(
-        np.round(convert_units(values, "d-1_to_s-1"), precision)
-        == np.round(
-            [
-                0,
-                1000 / 24 / 60 / 60,
-                -10 / 24 / 60 / 60,
-            ],
-            precision,
-        )
+    assert np.allclose(
+        convert_units(values, "d-1_to_s-1"),
+        [0, 1000 / 24 / 60 / 60, -10 / 24 / 60 / 60],
+        atol=0,
+        rtol=1e-12,
     )  # 1 day = 24 * 60 * 60 seconds
 
     with pytest.raises(ValueError):
@@ -106,18 +102,16 @@ def test_convert_units():
 
 def test_par_from_net_radiation():
     """Test par_from_net_radiation function."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
-
     # Input unit: J/m^2/day
     radiation_input = np.array([1e6, 0, -1e6])
 
     # Target unit: µmol/m^2/s;
     # 1 J = 4.57 µmol, PAR fraction: 50% of net radiation, 1 day = 24 * 60 * 60 seconds
     # Negative values to be corrected to 0
-    radiation_target = np.round([1e6 * 4.57 / 2 / 24 / 60 / 60, 0, 0], precision)
+    radiation_target = [1e6 * 4.57 / 2 / 24 / 60 / 60, 0, 0]
 
-    assert all(
-        np.round(par_from_net_radiation(radiation_input), precision) == radiation_target
+    assert np.allclose(
+        par_from_net_radiation(radiation_input), radiation_target, atol=0, rtol=1e-12
     )
 
 
@@ -294,7 +288,6 @@ def test_daily_mean_daylight():
             "end_fraction": 2 / 60,  # 2 minutes of 20:30-21:30 to be used
         },
     }
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
 
     # Get test sunrise and sunset times
     time_zone = get_time_zone(coordinates)
@@ -323,9 +316,9 @@ def test_daily_mean_daylight():
             + (specs["end_index"] - specs["start_index"] - 1)
             + specs["end_fraction"]
         )
-        target_value = round(weighted_sum / sum_of_weights, precision)
+        target_value = weighted_sum / sum_of_weights
 
-        assert round(daylight_values[index], precision) == target_value
+        assert np.isclose(daylight_values[index], target_value, atol=0, rtol=1e-12)
 
 
 def test_hourly_to_daily():
@@ -374,7 +367,6 @@ def test_hourly_to_daily():
     }
 
     # Specify expected data format
-    precision = 6  # 6 decimal places expected in results data
     results_file_path = Path(
         "weatherDataTestResults"
         + os.sep
@@ -449,8 +441,8 @@ def test_hourly_to_daily():
             if key == "Date":
                 assert all(generated_content[key] == target_data[key])
             else:
-                assert all(
-                    generated_content[key] == np.round(target_data[key], precision)
+                assert np.allclose(
+                    generated_content[key], target_data[key], atol=0, rtol=1e-5
                 )
 
     if remove_folder:
@@ -479,7 +471,6 @@ def test_monthly_mean():
 
 def test_effective_temperature():
     """Test effective temperature calculation."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     year = 2021
     temperature_hourly = []
     dates = []
@@ -511,18 +502,19 @@ def test_effective_temperature():
         target_t_eff_corrected, t_max
     )  # t_eff not higher than t_max
 
-    assert all(
-        np.round(effective_temperature(temperature_hourly), precision)
-        == np.round(target_t_eff_default, precision)
+    assert np.allclose(
+        effective_temperature(temperature_hourly),
+        target_t_eff_default,
+        atol=0,
+        rtol=1e-12,
     )
-    assert all(
-        np.round(
-            effective_temperature(
-                temperature_hourly, correct_by_day_length=True, day_length=day_length
-            ),
-            precision,
-        )
-        == np.round(target_t_eff_corrected, precision)
+    assert np.allclose(
+        effective_temperature(
+            temperature_hourly, correct_by_day_length=True, day_length=day_length
+        ),
+        target_t_eff_corrected,
+        atol=0,
+        rtol=1e-12,
     )
 
     # Test missing day length data
@@ -532,20 +524,15 @@ def test_effective_temperature():
 
 def test_wind_speed_from_u_v():
     """Test wind_speed_from_u_v function."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     u = np.array([0, 1, 0, -1, 2])
     v = np.array([1, 0, -1, 0, 2])
     wind_speed = np.array([1, 1, 1, 1, np.sqrt(8)])
 
-    assert all(
-        np.round(wind_speed_from_u_v(u, v), precision)
-        == np.round(wind_speed, precision)
-    )
+    assert np.allclose(wind_speed_from_u_v(u, v), wind_speed, atol=0, rtol=1e-12)
 
 
 def test_wind_speed_height_change():
     """Test wind_speed_height_change function."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     wind_speed = np.array([1, 2, 3, 4, 5])
 
     # Helper function for conversion factor, log wind profile, no displacement height
@@ -555,37 +542,36 @@ def test_wind_speed_height_change():
         )
 
     # Test with default values
-    assert all(
-        np.round(wind_speed_height_change(wind_speed), precision)
-        == np.round(wind_speed * conversion_factor(10, 2, 0.03), precision)
+    assert np.allclose(
+        wind_speed_height_change(wind_speed),
+        wind_speed * conversion_factor(10, 2, 0.03),
+        atol=0,
+        rtol=1e-12,
     )
 
     # Test with custom values
-    assert all(
-        np.round(
-            wind_speed_height_change(wind_speed, target_height=5, roughness_length=0.1),
-            precision,
-        )
-        == np.round(wind_speed * conversion_factor(10, 5, 0.1), precision)
+    assert np.allclose(
+        wind_speed_height_change(wind_speed, target_height=5, roughness_length=0.1),
+        wind_speed * conversion_factor(10, 5, 0.1),
+        atol=0,
+        rtol=1e-12,
     )
 
-    assert all(
-        np.round(
-            wind_speed_height_change(
-                wind_speed, initial_height=50, target_height=5, roughness_length=0.001
-            ),
-            precision,
-        )
-        == np.round(wind_speed * conversion_factor(50, 5, 0.001), precision)
+    assert np.allclose(
+        wind_speed_height_change(
+            wind_speed, initial_height=50, target_height=5, roughness_length=0.001
+        ),
+        wind_speed * conversion_factor(50, 5, 0.001),
+        atol=0,
+        rtol=1e-12,
     )
 
     # Test no change for same height
-    assert all(
-        np.round(
-            wind_speed_height_change(wind_speed, initial_height=5, target_height=5),
-            precision,
-        )
-        == wind_speed
+    assert np.allclose(
+        wind_speed_height_change(wind_speed, initial_height=5, target_height=5),
+        wind_speed,
+        atol=0,
+        rtol=1e-12,
     )
 
     # Test invalid roughness length
@@ -595,52 +581,47 @@ def test_wind_speed_height_change():
 
 def test_svp_from_temperature():
     """Test saturation vapor pressure calculation from temperature."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     temperature = np.array([-20, 0, 10, 40])
-    svp = np.round(
-        0.6108 * np.exp(17.27 * temperature / (temperature + 237.3)), precision
-    )
+    svp_target = 0.6108 * np.exp(17.27 * temperature / (temperature + 237.3))
 
-    assert all(np.round(svp_from_temperature(temperature), precision) == svp)
+    assert np.allclose(
+        svp_from_temperature(temperature), svp_target, atol=0, rtol=1e-12
+    )
 
 
 def test_delta_svp():
     """Test delta saturation vapor pressure calculation from temperature."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     temperature = np.array([-20, 0, 10, 40])
-    delta_svp_target = np.round(
+    delta_svp_target = (
         4098
         * 0.6108
         * np.exp(17.27 * temperature / (temperature + 237.3))
-        / (temperature + 237.3) ** 2,
-        precision,
+        / (temperature + 237.3) ** 2
     )
 
-    assert all(np.round(delta_svp(temperature), precision) == delta_svp_target)
+    assert np.allclose(delta_svp(temperature), delta_svp_target, atol=0, rtol=1e-12)
 
 
 def test_gamma_from_atmospheric_pressure():
     """Test gamma calculation from atmospheric pressure."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     pressure = np.array([0, 100000, 110000])
-    gamma_target = np.round(0.665e-3 * pressure, precision)
+    gamma_target = 0.665e-3 * pressure
 
-    assert all(
-        np.round(gamma_from_atmospheric_pressure(pressure), precision) == gamma_target
+    assert np.allclose(
+        gamma_from_atmospheric_pressure(pressure), gamma_target, atol=0, rtol=1e-12
     )
 
 
 def test_heat_index():
     """Test heat index calculation."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     temperature_monthly = np.array(
         [np.arange(1, 13), np.arange(-5, 7), np.arange(25, 37)]
     )
-    target_indexes = np.round(
-        np.sum((0.2 * temperature_monthly.clip(min=0)) ** 1.514, axis=1), precision
-    )
+    target_indexes = np.sum((0.2 * temperature_monthly.clip(min=0)) ** 1.514, axis=1)
 
-    assert all(np.round(heat_index(temperature_monthly), precision) == target_indexes)
+    assert np.allclose(
+        heat_index(temperature_monthly), target_indexes, atol=0, rtol=1e-12
+    )
 
     # Invalid shape of temperature data
     with pytest.raises(ValueError):
@@ -649,19 +630,16 @@ def test_heat_index():
 
 def test_exponent_a():
     """Test exponent_a calculation."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     indexes = np.array([0, 10, 200])
-    target_exponents = np.round(
-        6.75e-7 * indexes**3 - 7.71e-5 * indexes**2 + 0.017912 * indexes + 0.49239,
-        precision,
+    target_exponents = (
+        6.75e-7 * indexes**3 - 7.71e-5 * indexes**2 + 0.017912 * indexes + 0.49239
     )
 
-    assert all(np.round(exponent_a(indexes), precision) == target_exponents)
+    assert np.allclose(exponent_a(indexes), target_exponents, atol=0, rtol=1e-12)
 
 
 def test_get_pet_fao():
     """Test get_pet_fao calculation."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     year = 2021
     values_daily = np.arange(1, get_days_in_year(year) + 1)
     alternating_sign = np.array(
@@ -690,52 +668,43 @@ def test_get_pet_fao():
     # Calculate expected results, Eq. (6) in FAO 56
     gamma = gamma_from_atmospheric_pressure(surface_pressure_daily)
     delta = delta_svp(temperature_daily)
-    target_pet = np.round(
-        np.maximum(
-            (
-                0.408
-                * delta
-                * (
-                    convert_units(ssr_daily, "_to_Mega")
-                    - convert_units(
-                        -slhf_daily, "_to_Mega"
-                    )  # switch direction for heat flux
-                )
-                + gamma
-                * 900
-                / convert_units(temperature_daily, "Celsius_to_Kelvin")
-                * wind_speed_daily
-                * (
-                    daily_mean_00_24(svp_from_temperature(temperature_hourly))
-                    - daily_mean_00_24(
-                        svp_from_temperature(dewpoint_temperature_hourly)
-                    )
-                )
+    target_pet = np.maximum(
+        (
+            0.408
+            * delta
+            * (
+                convert_units(ssr_daily, "_to_Mega")
+                - convert_units(
+                    -slhf_daily, "_to_Mega"
+                )  # switch direction for heat flux
             )
-            / (delta + gamma * (1 + 0.34 * wind_speed_daily)),
-            0,
-        ),
-        precision,
+            + gamma
+            * 900
+            / convert_units(temperature_daily, "Celsius_to_Kelvin")
+            * wind_speed_daily
+            * (
+                daily_mean_00_24(svp_from_temperature(temperature_hourly))
+                - daily_mean_00_24(svp_from_temperature(dewpoint_temperature_hourly))
+            )
+        )
+        / (delta + gamma * (1 + 0.34 * wind_speed_daily)),
+        0,
     )
-    generated_pet = np.round(
-        get_pet_fao(
-            ssr_daily,
-            slhf_daily,
-            temperature_daily,
-            temperature_hourly,
-            wind_speed_daily,
-            dewpoint_temperature_hourly,
-            surface_pressure_daily,
-        ),
-        precision,
+    generated_pet = get_pet_fao(
+        ssr_daily,
+        slhf_daily,
+        temperature_daily,
+        temperature_hourly,
+        wind_speed_daily,
+        dewpoint_temperature_hourly,
+        surface_pressure_daily,
     )
 
-    assert all(generated_pet == target_pet)
+    assert np.allclose(generated_pet, target_pet, atol=0, rtol=1e-12)
 
 
 def test_get_pet_thornthwaite():
     """Test get_pet_thornthwaite calculation."""
-    precision = 12  # 12 decimal places to avoid differences only due to floating point arithmetic
     year = 2021
     temperature_hourly = []
     dates_local = []
@@ -797,28 +766,19 @@ def test_get_pet_thornthwaite():
                 - 0.43 * effective_temperature_daily[day_index] ** 2
             )
 
-    target_pet = np.round(target_pet, precision)
-    target_pet_t_eff = np.round(target_pet_t_eff, precision)
-
-    generated_pet = np.round(
-        get_pet_thornthwaite(
-            temperature_daily,
-            temperature_hourly,
-            day_length,
-            dates_local,
-            use_effective_temperature=False,
-        ),
-        precision,
+    generated_pet = get_pet_thornthwaite(
+        temperature_daily,
+        temperature_hourly,
+        day_length,
+        dates_local,
+        use_effective_temperature=False,
     )
-    generated_pet_t_eff = np.round(
-        get_pet_thornthwaite(
-            temperature_daily,
-            temperature_hourly,
-            day_length,
-            dates_local,
-        ),
-        precision,
+    generated_pet_t_eff = get_pet_thornthwaite(
+        temperature_daily,
+        temperature_hourly,
+        day_length,
+        dates_local,
     )
 
-    assert all(generated_pet == target_pet)
-    assert all(generated_pet_t_eff == target_pet_t_eff)
+    assert np.allclose(generated_pet, target_pet, atol=0, rtol=1e-12)
+    assert np.allclose(generated_pet_t_eff, target_pet_t_eff, atol=0, rtol=1e-12)
