@@ -239,22 +239,22 @@ def test_construct_weather_data_file_name():
         data_specifier="specialInfo",
         precision=3,
     )
-    assert str(file_name).endswith(
-        "test_folder\\lat12.123_lon99.900__2021-06__specialInfo.nc"
+    assert str(file_name.as_posix()).endswith(
+        "test_folder/lat12.123_lon99.900__2021-06__specialInfo.nc"
     )
 
     file_name = construct_weather_data_file_name(
         {"lat": 12.123456789, "lon": -12},
     )
-    assert str(file_name).endswith(
-        "weatherDataFolder\\lat12.123457_lon-12.000000__timeRange__noInfo.txt"
+    assert str(file_name.as_posix()).endswith(
+        "weatherDataFolder/lat12.123457_lon-12.000000__timeRange__noInfo.txt"
     )
 
     file_name = construct_weather_data_file_name(
         {"lat_start": 12.123456789, "lat_end": 13, "lon_start": -13.89, "lon_end": -12}
     )
-    assert str(file_name).endswith(
-        "weatherDataFolder\\lat12.123457_13.000000_lon-13.890000_-12.000000__timeRange__noInfo.txt"
+    assert str(file_name.as_posix()).endswith(
+        "weatherDataFolder/lat12.123457_13.000000_lon-13.890000_-12.000000__timeRange__noInfo.txt"
     )
 
     with pytest.raises(ValueError):
@@ -264,7 +264,7 @@ def test_construct_weather_data_file_name():
                 "lat_end": 10,
                 "lon_start": -13.89,
                 "lon_end": -12,
-            }  # lat_end < Lat_start
+            }  # lat_end < lat_start
         )
 
     with pytest.raises(ValueError):
