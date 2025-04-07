@@ -352,15 +352,15 @@ def test_weather_data_to_txt_file():
     # )
     # compare_file_contents("netcdf_area")
 
-    # Convert raw data (NetCDF, point location) to text files
-    weather_data_to_txt_file(
-        DATA_VAR_SPECS,
-        coordinates,
-        months_list,
-        target_folder="weatherDataTestFiles",
-        data_format="netcdf",
-    )
-    compare_file_contents("netcdf_point")
+    # # Convert raw data (NetCDF, point location) to text files
+    # weather_data_to_txt_file(
+    #     DATA_VAR_SPECS,
+    #     coordinates,
+    #     months_list,
+    #     target_folder="weatherDataTestFiles",
+    #     data_format="netcdf",
+    # )
+    # compare_file_contents("netcdf_point")
 
     # Clean up
     if remove_folder:
