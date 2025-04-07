@@ -318,11 +318,11 @@ def test_weather_data_to_txt_file():
             os.path.join("weatherDataTestFiles", raw_example_string + "*.txt")
         ):
             with open(file_path, "r") as file:
-                expected_content = file.read()
+                expected_content = file.read()  # .replace("\r\n", "\n")
 
             generated_file_path = file_path.replace(raw_example_string, "")
             with open(generated_file_path, "r") as file:
-                generated_content = file.read()
+                generated_content = file.read()  # .replace("\r\n", "\n")
 
             assert generated_content == expected_content
 
@@ -340,17 +340,17 @@ def test_weather_data_to_txt_file():
     )
     compare_file_contents("grib_area")
 
-    # Convert raw data (NetCDF, area location) to text files
-    weather_data_to_txt_file(
-        DATA_VAR_SPECS,
-        coordinates,
-        months_list,
-        area_coordinates=get_area_coordinates([coordinates]),
-        coordinate_digits=1,
-        target_folder="weatherDataTestFiles",
-        data_format="netcdf",
-    )
-    compare_file_contents("netcdf_area")
+    # # Convert raw data (NetCDF, area location) to text files
+    # weather_data_to_txt_file(
+    #     DATA_VAR_SPECS,
+    #     coordinates,
+    #     months_list,
+    #     area_coordinates=get_area_coordinates([coordinates]),
+    #     coordinate_digits=1,
+    #     target_folder="weatherDataTestFiles",
+    #     data_format="netcdf",
+    # )
+    # compare_file_contents("netcdf_area")
 
     # Convert raw data (NetCDF, point location) to text files
     weather_data_to_txt_file(

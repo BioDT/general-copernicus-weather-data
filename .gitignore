@@ -180,6 +180,7 @@ cython_debug/
 # (in case they would be created here)
 weatherDataPrepared
 weatherDataRaw
+weatherDataTestResults
 
 # logging with rotating files
 copernicus_app.log.*

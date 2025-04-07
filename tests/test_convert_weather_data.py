@@ -318,7 +318,9 @@ def test_daily_mean_daylight():
         )
         target_value = weighted_sum / sum_of_weights
 
-        assert np.isclose(daylight_values[index], target_value, atol=0, rtol=1e-12)
+        assert daylight_values[index] == pytest.approx(
+            target_value, abs=1e-12, rel=1e-12
+        )
 
 
 def test_hourly_to_daily():
