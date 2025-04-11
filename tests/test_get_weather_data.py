@@ -340,6 +340,10 @@ def test_weather_data_to_txt_file():
     )
     compare_file_contents("grib_area")
 
+    # NetCDF files excluded from comparison
+    # tests passed locally, but not on GitHub
+    # (marginal machine-specific differences in output values for variable PAR)
+
     # # Convert raw data (NetCDF, area location) to text files
     # weather_data_to_txt_file(
     #     DATA_VAR_SPECS,

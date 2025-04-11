@@ -25,17 +25,24 @@ Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Acce
 
 import calendar
 import csv
+import time
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
+import paramiko
+import requests
 from astral import LocationInfo
 from astral.sun import sun
+from dotenv import dotenv_values
 from timezonefinder import TimezoneFinder as tzf
 
 from copernicus.logger_config import logger
+
+# # will be "https://opendap.biodt.eu/..."
+OPENDAP_ROOT = "http://opendap.biodt.eu/grasslands-pdt/"
 
 
 def get_days_in_year(year):
@@ -398,3 +405,121 @@ def construct_weather_data_file_name(
     )
 
     return file_name
+
+
+def download_file_opendap(
+    file_name,
+    opendap_folder,
+    target_folder,
+    *,
+    new_file_name=None,
+    attempts=5,
+    delay=2,
+    warn_not_found=True,
+):
+    """
+    Download a file from OPeNDAP server 'grasslands-pdt'.
+
+    Parameters:
+        file_name (str): Name of file to download.
+        opendap_folder (str): Folder where file is expected on OPeNDAP server.
+        target_folder (str): Local folder where file will be saved.
+        new_file_name (str): New name for downloaded file (default is None, file_name will be used).
+        attempts (int): Number of attempts to download the file (default is 5).
+        delay (int): Number of seconds to wait between attempts (default is 2).
+        warn_not_found (bool): Warn if file not found on OPeNDAP server (default is True).
+
+    Returns:
+        None
+    """
+    url = f"{OPENDAP_ROOT}{opendap_folder}/{file_name}"
+    logger.info(f"Trying to download '{url}' ...")
+
+    while attempts > 0:
+        try:
+            response = requests.get(url)
+
+            # # Variant with authentication using OPeNDAP credentials from .env file.
+            # dotenv_config = dotenv_values(".env")
+            # session = requests.Session()
+            # session.auth = (dotenv_config["opendap_user"], dotenv_config["opendap_pw"])
+            # response = session.get(url)
+
+            if response.status_code == 200:
+                if not new_file_name:
+                    new_file_name = file_name
+
+                target_file = target_folder / new_file_name
+                Path(target_file).parent.mkdir(parents=True, exist_ok=True)
+
+                with open(target_file, "wb") as file:
+                    file.write(response.content)
+
+                logger.info(f"File downloaded successfully to '{target_file}'.")
+                return
+            elif response.status_code == 404:
+                if warn_not_found:
+                    logger.warning(f"File '{file_name}' not found on OPeNDAP server.")
+                return
+            else:
+                attempts -= 1
+
+                if attempts > 0:
+                    time.sleep(delay)
+        except requests.ConnectionError:
+            attempts -= 1
+
+            if attempts > 0:
+                time.sleep(delay)
+
+    logger.warning(f"File '{file_name}' download failed repeatedly.")
+
+
+def upload_file_opendap(file_name, opendap_folder, *, new_file_name=None):
+    """
+    Upload a file to OPeNDAP server 'grasslands-pdt' using SFTP.
+
+    Parameters:
+        file_name (Path): Path of the file to upload.
+        opendap_folder (str): Folder where file will be uploaded on OPeNDAP server.
+        new_file_name (str): New name for uploaded file (default is None, file_name will be used).
+    """
+    if file_name.is_file():
+        if new_file_name is None:
+            new_file_name = file_name.name
+
+        # Get IP, credentials and port from environment variables
+        dotenv_config = dotenv_values(".env")
+        ftp_ip = dotenv_config["FTP_SERVER_IP"]
+        ftp_user = dotenv_config["FTP_LOGIN_USER"]
+        ftp_password = dotenv_config["FTP_LOGIN_PASSWORD"]
+        ftp_port = (
+            dotenv_config["FTP_CONNECT_PORT"]
+            if "FTP_CONNECT_PORT" in dotenv_config
+            else 22  # default SFTP port
+        )
+
+        try:
+            # Connect to SFTP server
+            transport = paramiko.Transport((ftp_ip, ftp_port))
+            transport.connect(username=ftp_user, password=ftp_password)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+
+            # Define remote path (use what comes after the IP in OPeNDAP_ROOT)
+            opendap_root_relative = OPENDAP_ROOT.partition("://")[2].partition("/")[2]
+            remote_path = f"/{opendap_root_relative}{opendap_folder}/{new_file_name}"
+
+            # Upload file
+            sftp.put(str(file_name), remote_path)
+            logger.info(f"File '{file_name}' uploaded successfully to '{remote_path}'.")
+
+            # Close connections
+            sftp.close()
+            transport.close()
+
+        except Exception as e:
+            logger.error(f"Failed to upload file '{file_name}' to OPeNDAP server: {e}")
+    else:
+        logger.warning(
+            f"File '{file_name}' not found. Upload to OPeNDAP server failed."
+        )

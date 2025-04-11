@@ -340,12 +340,17 @@ def configure_data_requests(
     return data_requests
 
 
-def download_weather_data(data_requests):
+def download_weather_data(
+    data_requests, *, force_request=False, date_cutoff="2025-01-01", upload_opendap=True
+):
     """
     Download weather data from CDS API.
 
     Parameters:
         list: List of data requests and corresponding file names.
+        force_request (bool): Force download of data even if file already exists (default is False).
+        date_cutoff (str): Earliest valid date for existing data to be used, in 'YYYY-MM-DD' format
+            (default is '2025-01-01').
 
     Returns:
         str: URL of CDS API client.
@@ -355,15 +360,44 @@ def download_weather_data(data_requests):
     # Create folder for raw data if missing (all files in request list have the same folder)
     Path(data_requests[0][1]).parent.mkdir(parents=True, exist_ok=True)
 
+    # Parse date_cutoff to datetime timestamp
+    try:
+        date_cutoff = datetime.strptime(date_cutoff, "%Y-%m-%d").timestamp()
+    except ValueError:
+        try:
+            raise ValueError(
+                f"Invalid format ('{date_cutoff}'). Please provide earliest valid date for "
+                "existing weather data files as 'YYYY-MM-DD'!"
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
+
     client = cdsapi.Client()
 
     for request, file_name in data_requests:
-        # Request data if file does not exist or is older than Jan 1 2025
+        # Try download data from opendap if local file not found or is older than cutoff date
+        if not force_request and (
+            not file_name.is_file() or os.path.getmtime(file_name) < date_cutoff
+        ):
+            ut.download_file_opendap(
+                file_name.name,
+                file_name.parent.name,
+                file_name.parent,
+                warn_not_found=False,
+            )
+
+        # Request data from CDS API if forced or file still not found or is older than cutoff date
         if (
-            not os.path.exists(file_name)
-            or os.path.getmtime(file_name) < datetime(2025, 1, 1).timestamp()
+            force_request
+            or not file_name.is_file()
+            or os.path.getmtime(file_name) < date_cutoff
         ):
             client.retrieve("reanalysis-era5-land", request, file_name)
+
+            if upload_opendap:
+                # Try upload the newly requested file to opendap server (requires permission)
+                ut.upload_file_opendap(file_name, file_name.parent.name)
 
     return client.url
 
