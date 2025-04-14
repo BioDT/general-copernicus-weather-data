@@ -90,7 +90,7 @@ def data_processing(
     coordinates_list,
     *,
     data_format="grib",
-    download_whole_area=False,
+    download_whole_area=True,
     grid_resolution=0.1,
     final_time_resolution="daily",
     target_folder=None,
@@ -105,7 +105,7 @@ def data_processing(
             ({'lat': float, 'lon': float}).
         data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
         download_whole_area (bool): Download data for whole area covering all locations from the coordinates list
-          (default is False). If False, data will be downloaded for each location separately.
+          (default is True). If False, data will be downloaded for each location separately.
         grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
         final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
         target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
