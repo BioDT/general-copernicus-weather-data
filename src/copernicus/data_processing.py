@@ -86,9 +86,9 @@ DATA_VAR_SPECS = MappingProxyType(
 
 def data_processing(
     years,
-    months,
     coordinates_list,
     *,
+    months=list(range(1, 13)),
     data_format="grib",
     download_whole_area=True,
     grid_resolution=0.1,
@@ -100,9 +100,9 @@ def data_processing(
 
     Parameters:
         years (list of int): Years list.
-        months (list of int): Months list.
         coordinates_list (list of dict): List of dictionaries with 'lat' and 'lon' keys
             ({'lat': float, 'lon': float}).
+        months (list of int): Months list (1-12, default is [1, 2, ... 12]).
         data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
         download_whole_area (bool): Download data for whole area covering all locations from the coordinates list
           (default is True). If False, data will be downloaded for each location separately.

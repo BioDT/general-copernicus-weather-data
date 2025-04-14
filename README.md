@@ -5,24 +5,37 @@ Building block for obtaining selected weather data at given location(s) at hourl
    Optional conversion to and calculation of specific target variables at daily resolution. 
 
 ## Usage
-Call "data_processing(years, months, coordinates, *,
-    data_format=`grib`,
-    download_whole_area=False,
+Call 
+
+`data_processing(years, coordinates, *,
+    months=list(range(1, 13)),
+    data_format='grib',
+    download_whole_area=True,
     grid_resolution=0.1,
-    final_time_resolution=`daily`,
-    target_folder=None)"
+    final_time_resolution='daily',
+    target_folder=None)`
 
 Parameters:
 - years (list of int): Years list.
-- months (list of int): Months list.
-- coordinates_list (list of dict): List of dictionaries with `lat` and `lon` keys ({`lat`: float, `lon`: float}).
+- coordinates_list (list of dict): List of dictionaries with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
 
-- data_format (str): Data format (`grib` or `netcdf`, default is `grib`).
-- download_whole_area (bool): Download data for whole area covering all locations from the coordinates list (default is False). 
+- months (list of int): Months list (1-12, default is [1, 2, ... 12]).
+- data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
+- download_whole_area (bool): Download data for whole area covering all locations from the coordinates list (default is True). 
   If False, data will be downloaded for each location separately.
 - grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
-- final_time_resolution (str): Resolution for final text file (`hourly` or `daily`, default is `daily`).
-- target_folder (str or Path): Target folder for .txt files (default is `weatherDataPrepared`).
+- final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
+- target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
+
+Example call:
+
+`from copernicus import data_processing as dprc`
+
+`years = list(range(2022, 2025))`
+
+`coordinates_list = [{"lat": 51.123456, "lon": 11.987654}, {"lat": 51.234, "lon": 11.876}, {"lat": 51.33, "lon": 11.66}]`
+
+`dprc.data_processing(years, coordinates_list)`
 
 ## Developers
 Developed in the BioDT project by Thomas Banitz (UFZ) with contributions by Franziska Taubert (UFZ) 
