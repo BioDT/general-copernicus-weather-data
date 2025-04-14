@@ -494,7 +494,7 @@ def upload_file_opendap(file_name, opendap_folder, *, new_file_name=None):
         ftp_user = dotenv_config["FTP_LOGIN_USER"]
         ftp_password = dotenv_config["FTP_LOGIN_PASSWORD"]
         ftp_port = (
-            dotenv_config["FTP_CONNECT_PORT"]
+            int(dotenv_config["FTP_CONNECT_PORT"])
             if "FTP_CONNECT_PORT" in dotenv_config
             else 22  # default SFTP port
         )
@@ -508,6 +508,15 @@ def upload_file_opendap(file_name, opendap_folder, *, new_file_name=None):
             # Define remote path (use what comes after the IP in OPeNDAP_ROOT)
             opendap_root_relative = OPENDAP_ROOT.partition("://")[2].partition("/")[2]
             remote_path = f"/{opendap_root_relative}{opendap_folder}/{new_file_name}"
+
+            # Check if folder exists, if not create it
+            try:
+                sftp.stat(f"/{opendap_root_relative}{opendap_folder}")
+            except FileNotFoundError:
+                sftp.mkdir(f"/{opendap_root_relative}{opendap_folder}")
+                logger.info(
+                    f"Folder '{opendap_folder}' created on OPeNDAP server '{OPENDAP_ROOT}'."
+                )
 
             # Upload file
             sftp.put(str(file_name), remote_path)
