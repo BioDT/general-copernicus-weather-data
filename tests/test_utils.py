@@ -28,9 +28,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import requests
+from dotenv import dotenv_values
 
 from copernicus.utils import (
+    OPENDAP_ROOT,
     construct_weather_data_file_name,
+    download_file_opendap,
     format_month_str,
     format_offset,
     get_day_length,
@@ -39,6 +43,7 @@ from copernicus.utils import (
     get_file_suffix,
     get_time_zone,
     list_to_file,
+    upload_file_opendap,
 )
 
 
@@ -294,3 +299,63 @@ def test_construct_weather_data_file_name():
 
         if folder.is_dir() and not any(folder.iterdir()):
             folder.rmdir()
+
+
+def test_upload_file_opendap(tmp_path):
+    """Test upload of a file to the OPeNDAP server."""
+    # Create a temporary file to upload
+    file_path = tmp_path / "test_file.txt"
+    test_folder = "_test_folder"
+    with open(file_path, "w") as f:
+        # generate some unique content, like a timestamp
+        test_content = f"Test file content: {pd.Timestamp.now()}"
+        f.write(test_content)
+
+    # Check if credentials allowing upload are available
+    dotenv_config = dotenv_values(".env")
+
+    if (
+        "FTP_SERVER_IP" in dotenv_config
+        and "FTP_LOGIN_USER" in dotenv_config
+        and "FTP_LOGIN_PASSWORD" in dotenv_config
+    ):
+        # Upload file to OPeNDAP server, needs credentials
+        upload_file_opendap(file_path, test_folder)
+
+        # Test that file exists under the URL and has the expected content
+        file_url = f"{OPENDAP_ROOT}{test_folder}/{file_path.name}"
+        response = requests.get(file_url)
+        assert response.status_code == 200, "File not found on OPeNDAP server."
+        assert response.content.decode() == test_content, "File content does not match."
+    else:
+        pytest.skip(
+            "OPeNDAP upload test skipped. Valid FTP credentials not available in .env file."
+        )
+
+
+def test_download_file_opendap(tmp_path, caplog):
+    """Test download of a file from the OPeNDAP server."""
+    # Create a temporary file to upload
+    file_name = "test_file.txt"
+    test_folder = "_test_folder"
+    local_file_path = tmp_path / file_name
+
+    download_file_opendap(file_name, test_folder, tmp_path)
+
+    # Test that the downloaded file exists and has the expected content
+    assert local_file_path.exists()
+    assert local_file_path.is_file()
+
+    with open(local_file_path, "r") as f:
+        downloaded_content = f.read()
+        assert downloaded_content.startswith("Test file content:")
+
+    # Test download of a non-existing file
+    file_name = "non_existing_file.txt"
+    local_file_path = tmp_path / file_name
+
+    with caplog.at_level("WARNING"):
+        download_file_opendap(file_name, test_folder, tmp_path)
+
+    assert f"File '{file_name}' not found on OPeNDAP server." in caplog.text
+    assert local_file_path.exists() is False, "Local file should not exist."
