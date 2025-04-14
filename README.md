@@ -7,7 +7,7 @@ Building block for obtaining selected weather data at given location(s) at hourl
 ## Usage
 Call 
 
-`data_processing(years, coordinates, *,
+`data_processing(years, coordinates_list, *,
     months=list(range(1, 13)),
     data_format='grib',
     download_whole_area=True,
