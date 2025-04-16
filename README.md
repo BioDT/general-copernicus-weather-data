@@ -4,8 +4,27 @@ Building block for obtaining selected weather data at given location(s) at hourl
    for desired time periods. 
    Optional conversion to and calculation of specific target variables at daily resolution. 
 
+## Installation
+
+The current development version can be installed as:
+
+    pip install git+https://github.com/BioDT/general-copernicus-weather-data.git@main
+
 ## Usage
-Call 
+
+Preparatory step: setup the CDS API personal access token as described [here](https://cds.climate.copernicus.eu/how-to-api).
+
+Reguest data for a span of years at a few locations:
+
+```python
+from copernicus import data_processing as dprc
+
+years = list(range(2022, 2025))
+coordinates = [{"lat": 51.123456, "lon": 11.987654}, {"lat": 51.234, "lon": 11.876}, {"lat": 51.33, "lon": 11.66}]
+dprc.data_processing(years, coordinates)
+```
+
+Full function signature: 
 
 `data_processing(years, coordinates_list, *,
     months=list(range(1, 13)),
@@ -26,16 +45,6 @@ Parameters:
 - grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
 - final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
 - target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
-
-Example call:
-
-`from copernicus import data_processing as dprc`
-
-`years = list(range(2022, 2025))`
-
-`coordinates_list = [{"lat": 51.123456, "lon": 11.987654}, {"lat": 51.234, "lon": 11.876}, {"lat": 51.33, "lon": 11.66}]`
-
-`dprc.data_processing(years, coordinates_list)`
 
 ## Developers
 Developed in the BioDT project by Thomas Banitz (UFZ) with contributions by Franziska Taubert (UFZ) 
