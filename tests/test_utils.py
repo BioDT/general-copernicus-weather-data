@@ -301,7 +301,7 @@ def test_construct_weather_data_file_name():
             folder.rmdir()
 
 
-def test_upload_file_opendap(tmp_path):
+def test_upload_file_opendap(tmp_path, caplog):
     """Test upload of a file to the OPeNDAP server."""
     # Create a temporary file to upload
     file_path = tmp_path / "test_file.txt"
@@ -311,7 +311,11 @@ def test_upload_file_opendap(tmp_path):
         test_content = f"Test file content: {pd.Timestamp.now()}"
         f.write(test_content)
 
-    # Check if credentials allowing upload are available
+    # Upload file to OPeNDAP server, needs credentials
+    with caplog.at_level("WARNING"):
+        upload_file_opendap(file_path, test_folder)
+
+    # Check if credentials allowing upload are available,
     dotenv_config = dotenv_values(".env")
 
     if (
@@ -319,17 +323,16 @@ def test_upload_file_opendap(tmp_path):
         and "FTP_LOGIN_USER" in dotenv_config
         and "FTP_LOGIN_PASSWORD" in dotenv_config
     ):
-        # Upload file to OPeNDAP server, needs credentials
-        upload_file_opendap(file_path, test_folder)
-
         # Test that file exists under the URL and has the expected content
         file_url = f"{OPENDAP_ROOT}{test_folder}/{file_path.name}"
         response = requests.get(file_url)
         assert response.status_code == 200, "File not found on OPeNDAP server."
         assert response.content.decode() == test_content, "File content does not match."
     else:
-        pytest.skip(
-            "OPeNDAP upload test skipped. Valid FTP credentials not available in .env file."
+        # Test that correct warning is logged when not all credentials are available
+        assert (
+            "OPeNDAP upload skipped. Valid FTP credentials not available in .env file."
+            in caplog.text
         )
 
 

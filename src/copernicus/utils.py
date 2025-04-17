@@ -490,44 +490,63 @@ def upload_file_opendap(file_name, opendap_folder, *, new_file_name=None):
 
         # Get IP, credentials and port from environment variables
         dotenv_config = dotenv_values(".env")
-        ftp_ip = dotenv_config["FTP_SERVER_IP"]
-        ftp_user = dotenv_config["FTP_LOGIN_USER"]
-        ftp_password = dotenv_config["FTP_LOGIN_PASSWORD"]
-        ftp_port = (
-            int(dotenv_config["FTP_CONNECT_PORT"])
-            if "FTP_CONNECT_PORT" in dotenv_config
-            else 22  # default SFTP port
-        )
 
-        try:
-            # Connect to SFTP server
-            transport = paramiko.Transport((ftp_ip, ftp_port))
-            transport.connect(username=ftp_user, password=ftp_password)
-            sftp = paramiko.SFTPClient.from_transport(transport)
+        if (
+            "FTP_SERVER_IP" in dotenv_config
+            and "FTP_LOGIN_USER" in dotenv_config
+            and "FTP_LOGIN_PASSWORD" in dotenv_config
+        ):
+            ftp_ip = dotenv_config["FTP_SERVER_IP"]
+            ftp_user = dotenv_config["FTP_LOGIN_USER"]
+            ftp_password = dotenv_config["FTP_LOGIN_PASSWORD"]
+            ftp_port = (
+                int(dotenv_config["FTP_CONNECT_PORT"])
+                if "FTP_CONNECT_PORT" in dotenv_config
+                else 22  # default SFTP port
+            )
 
-            # Define remote path (use what comes after the IP in OPeNDAP_ROOT)
-            opendap_root_relative = OPENDAP_ROOT.partition("://")[2].partition("/")[2]
-            remote_path = f"/{opendap_root_relative}{opendap_folder}/{new_file_name}"
-
-            # Check if folder exists, if not create it
             try:
-                sftp.stat(f"/{opendap_root_relative}{opendap_folder}")
-            except FileNotFoundError:
-                sftp.mkdir(f"/{opendap_root_relative}{opendap_folder}")
-                logger.info(
-                    f"Folder '{opendap_folder}' created on OPeNDAP server '{OPENDAP_ROOT}'."
+                # Connect to SFTP server
+                transport = paramiko.Transport((ftp_ip, ftp_port))
+                transport.connect(username=ftp_user, password=ftp_password)
+                sftp = paramiko.SFTPClient.from_transport(transport)
+
+                # Define remote path (use what comes after the IP in OPeNDAP_ROOT)
+                opendap_root_relative = OPENDAP_ROOT.partition("://")[2].partition("/")[
+                    2
+                ]
+                remote_path = (
+                    f"/{opendap_root_relative}{opendap_folder}/{new_file_name}"
                 )
 
-            # Upload file
-            sftp.put(str(file_name), remote_path)
-            logger.info(f"File '{file_name}' uploaded successfully to '{remote_path}'.")
+                # Check if folder exists, if not create it
+                try:
+                    sftp.stat(f"/{opendap_root_relative}{opendap_folder}")
+                except FileNotFoundError:
+                    sftp.mkdir(f"/{opendap_root_relative}{opendap_folder}")
+                    logger.info(
+                        f"Folder '{opendap_folder}' created on OPeNDAP server '{OPENDAP_ROOT}'."
+                    )
 
-            # Close connections
-            sftp.close()
-            transport.close()
+                # Upload file
+                sftp.put(str(file_name), remote_path)
+                logger.info(
+                    f"File '{file_name}' uploaded successfully to '{remote_path}'."
+                )
 
-        except Exception as e:
-            logger.error(f"Failed to upload file '{file_name}' to OPeNDAP server: {e}")
+                # Close connections
+                sftp.close()
+                transport.close()
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to upload file '{file_name}' to OPeNDAP server: {e}"
+                )
+
+        else:
+            logger.warning(
+                "OPeNDAP upload skipped. Valid FTP credentials not available in .env file."
+            )
     else:
         logger.warning(
             f"File '{file_name}' not found. Upload to OPeNDAP server failed."
