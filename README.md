@@ -11,17 +11,16 @@ The current development version can be installed as:
     pip install git+https://github.com/BioDT/general-copernicus-weather-data.git@main
 
 ## Usage
-
 Preparatory step: setup the CDS API personal access token as described [here](https://cds.climate.copernicus.eu/how-to-api).
 
-Reguest data for a span of years at a few locations:
+Request data for a span of years at a few locations:
 
 ```python
-from copernicus import data_processing as dprc
+from copernicus import data_processing
 
 years = list(range(2022, 2025))
 coordinates = [{"lat": 51.123456, "lon": 11.987654}, {"lat": 51.234, "lon": 11.876}, {"lat": 51.33, "lon": 11.66}]
-dprc.data_processing(years, coordinates)
+data_processing(years, coordinates)
 ```
 
 Full function signature: 
