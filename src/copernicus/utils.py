@@ -460,6 +460,8 @@ def download_file_opendap(
             elif response.status_code == 404:
                 if warn_not_found:
                     logger.warning(f"File '{file_name}' not found on OPeNDAP server.")
+                else:
+                    logger.info(f"File '{file_name}' not found on OPeNDAP server.")
                 return
             else:
                 attempts -= 1
