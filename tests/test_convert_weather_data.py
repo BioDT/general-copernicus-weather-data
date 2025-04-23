@@ -57,7 +57,7 @@ from copernicus.convert_weather_data import (
     wind_speed_from_u_v,
     wind_speed_height_change,
 )
-from copernicus.data_processing import DATA_VAR_SPECS
+from copernicus.get_weather_data import DATA_VAR_SPECS
 from copernicus.utils import get_day_length, get_days_in_year, get_time_zone
 
 

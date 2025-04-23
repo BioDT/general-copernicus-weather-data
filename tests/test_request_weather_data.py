@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pytest
 
-from copernicus.data_processing import DATA_VAR_SPECS
+from copernicus.get_weather_data import DATA_VAR_SPECS
 from copernicus.request_weather_data import (
     configure_data_requests,
     construct_months_list,
@@ -294,7 +294,7 @@ def test_weather_data_to_txt_file():
     Test weather data to text file conversion.
 
     Notes:
-      This test uses DATA_VAR_SPECS from copernicus.data_processing module.
+      This test uses DATA_VAR_SPECS from copernicus.get_weather_data module.
       This test uses reference files created with the same function for result comparison.
     """
     coordinates = {"lat": 51.3919, "lon": 11.8787}

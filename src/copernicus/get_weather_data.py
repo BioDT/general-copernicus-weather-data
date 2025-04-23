@@ -1,5 +1,5 @@
 """
-Module Name: data_processing.py
+Module Name: get_weather_data.py
 Description: Function for obtaining selected weather data at given location(s) at hourly resolution,
    from Copernicus ERA5-Land dataset (interpolated from 0.1° x 0.1° or 0.25° x 0.25° spatial resolution)
    for desired time periods.
@@ -84,7 +84,7 @@ DATA_VAR_SPECS = MappingProxyType(
 )
 
 
-def data_processing(
+def get_weather_data(
     years,
     coordinates_list,
     *,

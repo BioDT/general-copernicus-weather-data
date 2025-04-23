@@ -5,7 +5,6 @@ Building block for obtaining selected weather data at given location(s) at hourl
    Optional conversion to and calculation of specific target variables at daily resolution. 
 
 ## Installation
-
 The current development version can be installed as:
 
     pip install git+https://github.com/BioDT/general-copernicus-weather-data.git@main
@@ -16,16 +15,16 @@ Preparatory step: setup the CDS API personal access token as described [here](ht
 Request data for a span of years at a few locations:
 
 ```python
-from copernicus import data_processing
+from copernicus import get_weather_data
 
 years = list(range(2022, 2025))
 coordinates = [{"lat": 51.123456, "lon": 11.987654}, {"lat": 51.234, "lon": 11.876}, {"lat": 51.33, "lon": 11.66}]
-data_processing(years, coordinates)
+get_weather_data(years, coordinates)
 ```
 
 Full function signature: 
 
-`data_processing(years, coordinates_list, *,
+`get_weather_data(years, coordinates_list, *,
     months=list(range(1, 13)),
     data_format='grib',
     download_whole_area=True,
