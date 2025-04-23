@@ -1,5 +1,5 @@
 """
-Module Name: get_weather_data.py
+Module Name: request_weather_data.py
 Description: Functions for downloading and processing selected weather data at given location
              (0.1° x 0.1° spatial resolution) for desired time periods, at hourly
              resolution, from Copernicus ERA5-Land dataset.

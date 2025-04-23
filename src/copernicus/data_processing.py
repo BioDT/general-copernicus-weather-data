@@ -46,7 +46,7 @@ Data source:
 
 from types import MappingProxyType
 
-from copernicus import get_weather_data as gwd
+from copernicus import request_weather_data as rwd
 from copernicus.logger_config import logger
 
 # Define data variable specifications for download variables, including:
@@ -114,11 +114,11 @@ def data_processing(
         None
     """
     # Prepare requests
-    months_list = gwd.construct_months_list(years, months)
+    months_list = rwd.construct_months_list(years, months)
 
     if download_whole_area:
         # Configure requests to download whole area (for each time period)
-        area_coordinates = gwd.get_area_coordinates(
+        area_coordinates = rwd.get_area_coordinates(
             coordinates_list, resolution=grid_resolution
         )
         logger.info("Requesting weather data for area ...")
@@ -127,7 +127,7 @@ def data_processing(
             f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']}",
         )
         coordinate_digits = 1
-        data_requests = gwd.configure_data_requests(
+        data_requests = rwd.configure_data_requests(
             DATA_VAR_SPECS,
             area_coordinates,
             months_list,
@@ -145,21 +145,21 @@ def data_processing(
             logger.info(
                 f"latitude: {coordinates['lat']}, longitude: {coordinates['lon']}"
             )
-            location_as_area = gwd.get_area_coordinates(
+            location_as_area = rwd.get_area_coordinates(
                 [coordinates], resolution=0, map_to_grid=False
             )
             data_requests.extend(
-                gwd.configure_data_requests(
+                rwd.configure_data_requests(
                     DATA_VAR_SPECS, location_as_area, months_list
                 )
             )
 
     # Download raw data
-    cds_api_url = gwd.download_weather_data(data_requests)
+    cds_api_url = rwd.download_weather_data(data_requests)
 
     # Process raw data to final files
     for coordinates in coordinates_list:
-        gwd.weather_data_to_txt_file(
+        rwd.weather_data_to_txt_file(
             DATA_VAR_SPECS,
             coordinates,
             months_list,

@@ -1,6 +1,6 @@
 """
-Module Name: test_get_weather_data.py
-Description: Test get_weather_data functions of copernicus building block.
+Module Name: test_request_weather_data.py
+Description: Test request_weather_data functions of copernicus building block.
 
 Note: 'download_weather_data' function for download from CDS API not tested here.
 
@@ -33,7 +33,7 @@ from pathlib import Path
 import pytest
 
 from copernicus.data_processing import DATA_VAR_SPECS
-from copernicus.get_weather_data import (
+from copernicus.request_weather_data import (
     configure_data_requests,
     construct_months_list,
     construct_request,
