@@ -331,7 +331,7 @@ def test_upload_file_opendap(tmp_path, caplog):
     else:
         # Test that correct warning is logged when not all credentials are available
         assert (
-            "OPeNDAP upload skipped. Valid FTP credentials not available in .env file."
+            "OPeNDAP upload skipped: Valid FTP credentials not available in .env file."
             in caplog.text
         )
 

@@ -245,7 +245,7 @@ def construct_request(
           ({'lat_start': float, 'lat_end': float, 'lon_start': float, 'lon_end': float}).
         year (int): Year for the data request.
         month_str (str): Month(s) for the data request, can be one (e.g. '03')
-            or range of months (e.g. '01-04').
+            or a range of months (e.g. '01-04').
         variables (list): List of variables to request.
         data_format (str): Data format ('grib' (default), 'netcdf' (netCDF4), or 'netcdf_legacy' to get
             output in the format of the CDS API before their update in 24-09).
@@ -347,10 +347,11 @@ def download_weather_data(
     Download weather data from CDS API.
 
     Parameters:
-        list: List of data requests and corresponding file names.
+        data_requests (list): List of tuples, each containing a data request dictionary and the corresponding file name.
         force_request (bool): Force download of data even if file already exists (default is False).
         date_cutoff (str): Earliest valid date for existing data to be used, in 'YYYY-MM-DD' format
             (default is '2025-01-01').
+        upload_opendap (bool): Upload the newly requested file to opendap server (requires permission, default is True).
 
     Returns:
         str: URL of CDS API client.
