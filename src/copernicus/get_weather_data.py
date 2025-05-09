@@ -130,7 +130,7 @@ def get_weather_data(
         )
         logger.info("Requesting weather data for area ...")
         logger.info(
-            f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
+            f"Latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
             f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']}",
         )
         coordinate_digits = 1

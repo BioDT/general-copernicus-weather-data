@@ -541,7 +541,7 @@ def upload_file_opendap(file_name, opendap_folder, *, new_file_name=None):
                 transport.close()
 
             except Exception as e:
-                logger.error(f"OPeNDAP upload failed for file '{file_name}': {e}")
+                logger.error(f"OPeNDAP upload failed for file '{file_name}' ({e}).")
 
         else:
             logger.warning(
