@@ -27,7 +27,7 @@ Full function signature:
 `get_weather_data(years, coordinates_list, *,
     months=list(range(1, 13)),
     data_format='grib',
-    download_whole_area=True,
+    download_area=True,
     grid_resolution=0.1,
     final_time_resolution='daily',
     target_folder=None)`
@@ -38,7 +38,7 @@ Parameters:
 
 - months (list of int): Months list (1-12, default is [1, 2, ... 12]).
 - data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
-- download_whole_area (bool): Download data for whole area covering all locations from the coordinates list (default is True). 
+- download_area (bool): Download raw weather data for whole area covering all locations from the coordinates list at grid resolution (default is True). If False, data will be downloaded for each location separately (only available for 'netcdf' format). 
   If False, data will be downloaded for each location separately.
 - grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
 - final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').

@@ -90,7 +90,7 @@ def get_weather_data(
     *,
     months=list(range(1, 13)),
     data_format="grib",
-    download_whole_area=True,
+    download_area=True,
     grid_resolution=0.1,
     final_time_resolution="daily",
     target_folder=None,
@@ -104,8 +104,9 @@ def get_weather_data(
             ({'lat': float, 'lon': float}).
         months (list of int): Months list (1-12, default is [1, 2, ... 12]).
         data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
-        download_whole_area (bool): Download data for whole area covering all locations from the coordinates list
-          (default is True). If False, data will be downloaded for each location separately.
+        download_area (bool): Download raw weather data for whole area covering all locations from the coordinates list
+            at grid resolution (default is True).
+            If False, data will be downloaded for each location separately (only available for 'netcdf' format).
         grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
         final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
         target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
@@ -116,7 +117,13 @@ def get_weather_data(
     # Prepare requests
     months_list = rwd.construct_months_list(years, months)
 
-    if download_whole_area:
+    if data_format == "grib" and not download_area:
+        logger.warning(
+            "Single location download is not supported for grib format! Switching to area download."
+        )
+        download_area = True
+
+    if download_area:
         # Configure requests to download whole area (for each time period)
         area_coordinates = rwd.get_area_coordinates(
             coordinates_list, resolution=grid_resolution
