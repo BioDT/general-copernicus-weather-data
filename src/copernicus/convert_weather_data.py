@@ -120,9 +120,6 @@ def check_length_of_values_00_24(values_hourly):
 
     Returns:
         numpy.ndarray: Checked and adjusted hourly values, i.e. length reduced to full days.
-
-    Raises:
-        ValueError: If length of hourly values is less than 1 full day, i.e. 25 values.
     """
     length_input = len(values_hourly)
 

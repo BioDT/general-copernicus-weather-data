@@ -365,10 +365,14 @@ def construct_weather_data_file_name(
         elif coordinates["lat_start"] < coordinates["lat_end"]:
             formatted_lat = f"lat{coordinates['lat_start']:.{precision}f}_{coordinates['lat_end']:.{precision}f}"
         else:
-            raise ValueError(
-                f"Latitude range not correctly defined. Start value ({coordinates['lat_start']}) "
-                f"must be not higher than end value ({coordinates['lat_end']})."
-            )
+            try:
+                raise ValueError(
+                    f"Latitude range not correctly defined. Start value ({coordinates['lat_start']}) "
+                    f"must be not higher than end value ({coordinates['lat_end']})."
+                )
+            except ValueError as e:
+                logger.error(e)
+                raise
 
         if coordinates["lon_start"] == coordinates["lon_end"]:
             formatted_lon = f"lon{coordinates['lon_start']:.{precision}f}"

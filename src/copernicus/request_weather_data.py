@@ -152,10 +152,6 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
 
     Returns:
         dict: Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys.
-
-    Raises:
-        ValueError: If coordinates are not correctly defined.
-        ValueError: If resolution is not 0.1 or 0.25.
     """
     if not isinstance(resolution, (int, float)) or resolution < 0:
         try:
@@ -626,9 +622,13 @@ def weather_data_to_txt_file(
                         all(nan_indexes[:start_hours_skipped])
                         and all(nan_indexes[-end_hours_skipped:])
                     ):
-                        raise ValueError(
-                            f"Data values for '{var_name}' contain values at time points for which NaNs were expected!"
-                        )
+                        try:
+                            raise ValueError(
+                                f"Data values for '{var_name}' contain values at time points for which NaNs were expected!"
+                            )
+                        except ValueError as e:
+                            logger.error(e)
+                            raise
 
                     # Convert values to numpy array, and to target units
                     data_values = np.array(
