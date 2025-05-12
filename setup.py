@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 # Project metadata
 name = "copernicus"
@@ -14,7 +14,7 @@ license = "EUPL v1.2"
 with open("requirements.txt", "r") as req_file:
     install_requires = req_file.readlines()
 
-# Setup configurationpip
+# Setup configuration pip
 setup(
     name=name,
     version=version,
@@ -24,4 +24,6 @@ setup(
     license=license,
     python_requires=">=3.10",
     install_requires=install_requires,
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
 )
