@@ -162,7 +162,7 @@ def get_time_zone(coordinates, *, return_as_offset=False, years=[2021]):
 
                 if offset != offset_check:
                     logger.warning(
-                        f"Timezone offset varies among years! Using final year ({years[-1]}, offset: {format_offset(offset)})."
+                        f"Timezone offset varies among years. Using final year ({years[-1]}, offset: {format_offset(offset)})."
                     )
                     return offset
 

@@ -101,7 +101,7 @@ def construct_months_list(years, months=list(range(1, 13))):
         # Force complete months list if more than one year
         if months != list(range(1, 13)):
             logger.info(
-                f"All months required for multiple years! Replacing months list ({months}) by [1, 2, ... 12]."
+                f"All months required for multiple years. Replacing months list ({months}) by [1, 2, ... 12]."
             )
             months = list(range(1, 13))
     else:

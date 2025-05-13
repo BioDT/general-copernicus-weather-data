@@ -119,7 +119,7 @@ def get_weather_data(
 
     if data_format == "grib" and not download_area:
         logger.warning(
-            "Single location download is not supported for grib format! Switching to area download."
+            "Single location download is not supported for grib format. Switching to area download."
         )
         download_area = True
 
