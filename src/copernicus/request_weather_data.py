@@ -549,6 +549,7 @@ def weather_data_to_txt_file(
         # Option: consider xr.merge or xr.open_mfdataset to combine several files to one time series?
         start_hours_skipped = 23
         end_hours_skipped = 1
+        nan_warn_threshold = 50
 
         for year, month_str in months_list:
             file_name = ut.construct_weather_data_file_name(
@@ -613,10 +614,17 @@ def weather_data_to_txt_file(
                                 nan_indexes[start_hours_skipped:-end_hours_skipped]
                             )[0]
                         ]
-                        logger.warning(
-                            f"Data values for '{var_name}' contain NaNs at time points for which values were expected: "
-                            f"{', '.join([t for t in nan_times])}",
-                        )
+
+                        if len(nan_times) < nan_warn_threshold:
+                            logger.warning(
+                                f"Data values for '{var_name}' in {month_str} {year} contain NaNs at time points for which values were expected "
+                                f"({len(nan_times)} time points: {', '.join([t for t in nan_times])}).",
+                            )
+                        else:
+                            logger.warning(
+                                f"Data values for '{var_name}' in {month_str} {year} contain NaNs at time points for which values were expected "
+                                f"({len(nan_times)} time points).",
+                            )
 
                     if not (
                         all(nan_indexes[:start_hours_skipped])
@@ -624,7 +632,7 @@ def weather_data_to_txt_file(
                     ):
                         try:
                             raise ValueError(
-                                f"Data values for '{var_name}' contain values at time points for which NaNs were expected!"
+                                f"Data values for '{var_name}' in {month_str} {year} contain values at time points for which NaNs were expected."
                             )
                         except ValueError as e:
                             logger.error(e)

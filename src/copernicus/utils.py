@@ -35,7 +35,7 @@ import pandas as pd
 import paramiko
 import requests
 from astral import LocationInfo
-from astral.sun import sun
+from astral.sun import sunrise, sunset
 from dotenv import dotenv_values
 from timezonefinder import TimezoneFinder as tzf
 
@@ -198,12 +198,13 @@ def get_day_length(coordinates, dates):
         try:
             year, month, day = map(int, date_str.split("-"))
             day_date = date(year, month, day)
-            sun_local = sun(location.observer, date=day_date, tzinfo=time_zone)
-            day_length = sun_local["sunset"] - sun_local["sunrise"]
+            sunrise_time = sunrise(location.observer, date=day_date, tzinfo=time_zone)
+            sunset_time = sunset(location.observer, date=day_date, tzinfo=time_zone)
+            day_length = sunset_time - sunrise_time
             day_lengths.append(day_length.total_seconds() / 3600)
         except Exception as e:
             # Error handling (no sunset or sunrise on given location)
-            logger.error(e)
+            logger.error(f"Error calculating day length for {date_str} ({e}).")
             day_lengths.append(0)
 
     return np.array(day_lengths)

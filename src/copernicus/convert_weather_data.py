@@ -41,7 +41,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 from astral import LocationInfo
-from astral.sun import sun
+from astral.sun import sunrise, sunset
 
 from copernicus import utils as ut
 from copernicus.logger_config import logger
@@ -269,7 +269,7 @@ def daily_accumulated(values_hourly, tz_offset_hours=0):
 
 def daily_mean_daylight(values_hourly, dates, coordinates):
     """
-    Calculate daily mean values from hourly data, considering only daylight hours.
+    Calculate daily mean values from hourly data, considering only daylight time span.
 
     Parameters:
         values_hourly (numpy.ndarray): Hourly data.
@@ -277,7 +277,7 @@ def daily_mean_daylight(values_hourly, dates, coordinates):
         coordinates (dict): Dictionary with 'lat' and 'lon' keys ({'lat': float, 'lon': float}).
 
     Returns:
-        numpy.ndarray: Daily mean temperature values for daylight hours only.
+        numpy.ndarray: Daily mean temperature values for daylight time span only.
     """
     time_zone = ut.get_time_zone(coordinates)
     location = LocationInfo(
@@ -291,19 +291,16 @@ def daily_mean_daylight(values_hourly, dates, coordinates):
             day_date = datetime.strptime(date_str, "%Y-%m-%d")
 
             # Get local sunrise and sunset times
-            sun_local = sun(location.observer, date=day_date, tzinfo=time_zone)
+            sunrise_time = sunrise(location.observer, date=day_date, tzinfo=time_zone)
+            sunset_time = sunset(location.observer, date=day_date, tzinfo=time_zone)
 
             # Adjust sunrise and sunset to take into account the CDS hour representation,
             # and ignore daylight saving time DST
             sunrise_plus_30 = (
-                sun_local["sunrise"]
-                + timedelta(minutes=30)
-                - time_zone.dst(sun_local["sunrise"])
+                sunrise_time + timedelta(minutes=30) - time_zone.dst(sunrise_time)
             )
             sunset_plus_30 = (
-                sun_local["sunset"]
-                + timedelta(minutes=30)
-                - time_zone.dst(sun_local["sunset"])
+                sunset_time + timedelta(minutes=30) - time_zone.dst(sunset_time)
             )
 
             # Determine indices of hours not fully considered
@@ -323,7 +320,7 @@ def daily_mean_daylight(values_hourly, dates, coordinates):
             values_daylight.append(weighted_mean)
         except Exception as e:
             # Error handling (no sunset or sunrise on given location)
-            logger.error(e)
+            logger.error(f"Error calculating daylight time span for {date_str} ({e}).")
             values_daylight.append(np.nan)
 
     return np.array(values_daylight)
