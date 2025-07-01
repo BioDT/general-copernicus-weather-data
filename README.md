@@ -4,6 +4,8 @@ Building block for obtaining selected weather data at given location(s) at hourl
    for desired time periods. 
    Optional conversion to and calculation of specific target variables at daily resolution. 
 
+<a href="https://doi.org/10.5281/zenodo.15730814"><img src="https://zenodo.org/badge/712900385.svg" alt="DOI"></a>
+
 ## Installation
 The current development version can be installed as:
 
