@@ -371,13 +371,7 @@ def hourly_to_daily(
     ssrd_par = par_from_net_radiation(ssrd)
 
     # PET from Thornthwaite equation
-    pet_thornthwaite = get_pet_thornthwaite(
-        temperature,
-        temperature_hourly,
-        day_length,
-        local_date,
-        use_effective_temperature=False,
-    )
+    pet_thornthwaite = get_pet_thornthwaite(temperature, day_length, local_date)
 
     # Write dataframe with daily values
     data_daily = pd.DataFrame(
@@ -670,11 +664,10 @@ def get_pet_fao(
 
 def get_pet_thornthwaite(
     temperature,
-    temperature_hourly,
     day_length,
     dates,
     *,
-    use_effective_temperature=True,
+    temperature_hourly=None,
 ):
     """
     Calculate Potential Evapotranspiration (PET) using the Thornthwaite equation.
@@ -683,10 +676,10 @@ def get_pet_thornthwaite(
 
     Parameters:
         temperature (numpy.ndarray):  Daily mean temperature (unit: degC).
-        temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC).
         day_length (numpy.ndarray): Daily day length (unit: hours).
         dates (array-like): Array of daily time strings in the format yyyy-mm-dd.
-        use_effective_temperature(bool): Effective temperatures instead of daily means (default is True).
+        temperature_hourly (numpy.ndarray): Hourly temperature (unit: degC) if effective temperature
+            calculation from hourly data is desired (default is None).
 
     Returns:
         numpy.ndarray: Daily Potential Evapotranspiration (PET) values (unit: mm),
@@ -719,7 +712,7 @@ def get_pet_thornthwaite(
     exponent_a_yearly = exponent_a(heat_index_yearly)
     correct_to_daily = day_length / 360  # Eq. (5) in Pereira and Pruitt 2004
 
-    # Correct to effective daily temperature if specified
+    # Correct to effective daily temperature if hourly temperatures specified
     # In both cases:
     # Use daily temperature values for calculation of "standard month of 30 days,
     # each day with 12 h of photoperiod" (Eq. (1) in Pereira and Pruitt 2004)
@@ -727,7 +720,7 @@ def get_pet_thornthwaite(
     # than correct PET to daily, which includes the actual day length
     temperature_used = (
         effective_temperature(temperature_hourly)
-        if use_effective_temperature
+        if temperature_hourly is not None
         else temperature
     )
 

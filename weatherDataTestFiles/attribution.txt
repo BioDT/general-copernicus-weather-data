@@ -4,4 +4,4 @@ Data generated and modified using Copernicus Climate Change Service information 
 
 Neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains.
 
-Full Licence to Use Copernicus Products: https://apps.ecmwf.int/datasets/licences/copernicus/
+Full licence to use Copernicus products: https://apps.ecmwf.int/datasets/licences/copernicus/

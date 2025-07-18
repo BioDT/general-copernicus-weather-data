@@ -429,10 +429,8 @@ def test_hourly_to_daily():
             )
             target_data["PET[mm]"] = get_pet_thornthwaite(
                 target_data["Temperature[degC]"],
-                data_hourly["Temperature[degC]"].values,
                 target_data["Daylength[h]"],
                 target_data["Date"],
-                use_effective_temperature=False,
             )
             target_data_created = True
 
@@ -770,16 +768,14 @@ def test_get_pet_thornthwaite():
 
     generated_pet = get_pet_thornthwaite(
         temperature_daily,
-        temperature_hourly,
         day_length,
         dates_local,
-        use_effective_temperature=False,
     )
     generated_pet_t_eff = get_pet_thornthwaite(
         temperature_daily,
-        temperature_hourly,
         day_length,
         dates_local,
+        temperature_hourly=temperature_hourly,
     )
 
     assert np.allclose(generated_pet, target_pet, atol=0, rtol=1e-12)
