@@ -4,7 +4,7 @@ Building block for obtaining selected weather data at given location(s) at hourl
    for desired time periods. 
    Optional conversion to and calculation of specific target variables at daily resolution. 
 
-<a href="https://doi.org/10.5281/zenodo.15730814"><img src="https://zenodo.org/badge/712900385.svg" alt="DOI"></a>
+<a href="https://doi.org/10.5281/zenodo.15730814"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.15730814.svg" alt="DOI"></a>
 
 ## Installation
 The current development version can be installed as:
@@ -76,7 +76,7 @@ ERA5-Land hourly data from 1950 to present.
 Copernicus Climate Change Service (C3S) Climate Data Store (CDS). https://doi.org/10.24381/cds.e2161bac
 - Website: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land
 - Online documentation: https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation
-- Full Licence to Use Copernicus Products: https://apps.ecmwf.int/datasets/licences/copernicus/
+- Full licence to use Copernicus products: https://apps.ecmwf.int/datasets/licences/copernicus/
 - Access via Climate Data Store (CDS) Application Program Interface (API):
    - URL: https://cds.climate.copernicus.eu/api
    - Documentation: https://cds.climate.copernicus.eu/how-to-api
