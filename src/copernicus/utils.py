@@ -554,3 +554,88 @@ def upload_file_opendap(file_name, opendap_folder, *, new_file_name=None):
             )
     else:
         logger.warning(f"OPeNDAP upload skipped: File '{file_name}' not found.")
+
+
+def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
+    """
+    Get area coordinates based on a list of coordinates.
+
+    Parameters:
+        coordinates_list (list): List of coordinates dictionaries with 'lat' and 'lon' keys.
+        resolution (float): Grid resolution (default is 0.1 [degrees], e.g. ERA5 grid resolution used).
+        map_to_grid (bool): Map area coordinates to the nearest grid points (default is True,
+            otherwise use margin around the coordinates).
+
+    Returns:
+        dict: Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys.
+    """
+    if not isinstance(resolution, (int, float)) or resolution < 0:
+        try:
+            raise ValueError("Resolution must be a number greater than or equal to 0!")
+        except ValueError as e:
+            logger.error(e)
+            raise
+
+    if map_to_grid and resolution not in [0.1, 0.25]:
+        try:
+            raise ValueError("Grid resolution must be 0.1 or 0.25 degrees!")
+        except ValueError as e:
+            logger.error(e)
+            raise
+
+    # Check if each entry in the list has 'lat' and 'lon' keys
+    if not all(
+        all(key in coordinates for key in ["lat", "lon"])
+        for coordinates in coordinates_list
+    ):
+        try:
+            raise ValueError(
+                "Coordinates not correctly defined. Please provide as dictionary ({'lat': float, 'lon': float})!"
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
+
+    lat_list = [coordinates["lat"] for coordinates in coordinates_list]
+    lon_list = [coordinates["lon"] for coordinates in coordinates_list]
+
+    def get_max_decimal_digits(list_of_floats):
+        """Helper function to get maximum number of decimal digits in a list of floats."""
+        max_decimal_digits = 0
+
+        for f in list_of_floats:
+            str_f = str(f)
+            decimal_digits = len(str_f.split(".")[1]) if "." in str_f else 0
+            max_decimal_digits = max(max_decimal_digits, decimal_digits)
+
+        return max_decimal_digits
+
+    digits_required = get_max_decimal_digits(lat_list + lon_list + [resolution])
+
+    if map_to_grid:
+        # Area around the coordinates, extended to the nearest grid points
+        round_factor = round(1 / resolution)
+        area_coordinates = {
+            "lat_start": round(
+                np.floor(min(lat_list) * round_factor) / round_factor, digits_required
+            ),
+            "lat_end": round(
+                np.ceil(max(lat_list) * round_factor) / round_factor, digits_required
+            ),
+            "lon_start": round(
+                np.floor(min(lon_list) * round_factor) / round_factor, digits_required
+            ),
+            "lon_end": round(
+                np.ceil(max(lon_list) * round_factor) / round_factor, digits_required
+            ),
+        }
+    else:
+        # Area with margin around the min and max coordinate values, according to the resolution
+        area_coordinates = {
+            "lat_start": round((min(lat_list)) - resolution, digits_required),
+            "lat_end": round(max(lat_list) + resolution, digits_required),
+            "lon_start": round(min(lon_list) - resolution, digits_required),
+            "lon_end": round(max(lon_list) + resolution, digits_required),
+        }
+
+    return area_coordinates

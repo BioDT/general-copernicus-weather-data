@@ -37,10 +37,9 @@ from copernicus.request_weather_data import (
     configure_data_requests,
     construct_months_list,
     construct_request,
-    get_area_coordinates,
     weather_data_to_txt_file,
 )
-from copernicus.utils import construct_weather_data_file_name
+from copernicus.utils import construct_weather_data_file_name, get_area_coordinates
 
 
 def test_construct_months_list():
@@ -81,66 +80,6 @@ def test_construct_months_list():
 
     with pytest.raises(ValueError):
         construct_months_list([2020, 2022])  # years not consecutive
-
-
-def test_get_area_coordinates():
-    """Test area coordinates calculation."""
-    assert get_area_coordinates([{"lat": 1.101, "lon": 7.8}]) == {
-        "lat_start": 1.1,
-        "lat_end": 1.2,
-        "lon_start": 7.8,
-        "lon_end": 7.8,
-    }
-
-    assert get_area_coordinates([{"lat": 1.101, "lon": 7.8}], map_to_grid=False) == {
-        "lat_start": 1.001,
-        "lat_end": 1.201,
-        "lon_start": 7.7,
-        "lon_end": 7.9,
-    }
-
-    coordinates = [
-        {"lat": 1.101, "lon": 7.8},
-        {"lat": 1.102, "lon": 7.9},
-        {"lat": 1.103, "lon": 8.25},
-    ]
-
-    assert get_area_coordinates(coordinates) == {
-        "lat_start": 1.1,
-        "lat_end": 1.2,
-        "lon_start": 7.8,
-        "lon_end": 8.3,
-    }
-
-    assert get_area_coordinates(coordinates, resolution=0.25) == {
-        "lat_start": 1,
-        "lat_end": 1.25,
-        "lon_start": 7.75,
-        "lon_end": 8.25,
-    }
-
-    assert get_area_coordinates(coordinates, map_to_grid=False) == {
-        "lat_start": 1.001,
-        "lat_end": 1.203,
-        "lon_start": 7.7,
-        "lon_end": 8.35,
-    }
-
-    assert get_area_coordinates(coordinates, resolution=0, map_to_grid=False) == {
-        "lat_start": 1.101,
-        "lat_end": 1.103,
-        "lon_start": 7.8,
-        "lon_end": 8.25,
-    }
-
-    with pytest.raises(ValueError):
-        get_area_coordinates(coordinates, resolution=-0.1)
-
-    with pytest.raises(ValueError):
-        get_area_coordinates(coordinates, resolution=None)
-
-    with pytest.raises(ValueError):
-        get_area_coordinates([{"lat": 1}])  # "lon" key missing
 
 
 def test_construct_request():

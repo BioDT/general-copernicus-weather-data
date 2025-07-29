@@ -37,6 +37,7 @@ from copernicus.utils import (
     download_file_opendap,
     format_month_str,
     format_offset,
+    get_area_coordinates,
     get_day_length,
     get_days_in_month,
     get_days_in_year,
@@ -362,3 +363,63 @@ def test_download_file_opendap(tmp_path, caplog):
 
     assert f"File '{file_name}' not found on OPeNDAP server." in caplog.text
     assert local_file_path.exists() is False, "Local file should not exist."
+
+
+def test_get_area_coordinates():
+    """Test area coordinates calculation."""
+    assert get_area_coordinates([{"lat": 1.101, "lon": 7.8}]) == {
+        "lat_start": 1.1,
+        "lat_end": 1.2,
+        "lon_start": 7.8,
+        "lon_end": 7.8,
+    }
+
+    assert get_area_coordinates([{"lat": 1.101, "lon": 7.8}], map_to_grid=False) == {
+        "lat_start": 1.001,
+        "lat_end": 1.201,
+        "lon_start": 7.7,
+        "lon_end": 7.9,
+    }
+
+    coordinates = [
+        {"lat": 1.101, "lon": 7.8},
+        {"lat": 1.102, "lon": 7.9},
+        {"lat": 1.103, "lon": 8.25},
+    ]
+
+    assert get_area_coordinates(coordinates) == {
+        "lat_start": 1.1,
+        "lat_end": 1.2,
+        "lon_start": 7.8,
+        "lon_end": 8.3,
+    }
+
+    assert get_area_coordinates(coordinates, resolution=0.25) == {
+        "lat_start": 1,
+        "lat_end": 1.25,
+        "lon_start": 7.75,
+        "lon_end": 8.25,
+    }
+
+    assert get_area_coordinates(coordinates, map_to_grid=False) == {
+        "lat_start": 1.001,
+        "lat_end": 1.203,
+        "lon_start": 7.7,
+        "lon_end": 8.35,
+    }
+
+    assert get_area_coordinates(coordinates, resolution=0, map_to_grid=False) == {
+        "lat_start": 1.101,
+        "lat_end": 1.103,
+        "lon_start": 7.8,
+        "lon_end": 8.25,
+    }
+
+    with pytest.raises(ValueError):
+        get_area_coordinates(coordinates, resolution=-0.1)
+
+    with pytest.raises(ValueError):
+        get_area_coordinates(coordinates, resolution=None)
+
+    with pytest.raises(ValueError):
+        get_area_coordinates([{"lat": 1}])  # "lon" key missing

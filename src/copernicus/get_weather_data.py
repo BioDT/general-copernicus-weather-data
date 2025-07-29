@@ -47,6 +47,7 @@ Data source:
 from types import MappingProxyType
 
 from copernicus import request_weather_data as rwd
+from copernicus import utils as ut
 from copernicus.logger_config import logger
 
 # Define data variable specifications for download variables, including:
@@ -125,7 +126,7 @@ def get_weather_data(
 
     if download_area:
         # Configure requests to download whole area (for each time period)
-        area_coordinates = rwd.get_area_coordinates(
+        area_coordinates = ut.get_area_coordinates(
             coordinates_list, resolution=grid_resolution
         )
         logger.info("Requesting weather data for area ...")
@@ -152,7 +153,7 @@ def get_weather_data(
             logger.info(
                 f"latitude: {coordinates['lat']}, longitude: {coordinates['lon']}"
             )
-            location_as_area = rwd.get_area_coordinates(
+            location_as_area = ut.get_area_coordinates(
                 [coordinates], resolution=0, map_to_grid=False
             )
             data_requests.extend(
