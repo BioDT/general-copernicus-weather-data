@@ -613,21 +613,33 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
     digits_required = get_max_decimal_digits(lat_list + lon_list + [resolution])
 
     if map_to_grid:
-        # Area around the coordinates, extended to the nearest grid points
+        # Area around the coordinates, extended to the nearest grid points, ensure minimum width is resolution in both directions
         round_factor = round(1 / resolution)
+        lat_start = round(
+            np.floor(min(lat_list) * round_factor) / round_factor, digits_required
+        )
+        lat_end = round(
+            max(
+                lat_start + resolution,
+                np.ceil(max(lat_list) * round_factor) / round_factor,
+            ),
+            digits_required,
+        )
+        lon_start = round(
+            np.floor(min(lon_list) * round_factor) / round_factor, digits_required
+        )
+        lon_end = round(
+            max(
+                lon_start + resolution,
+                np.ceil(max(lon_list) * round_factor) / round_factor,
+            ),
+            digits_required,
+        )
         area_coordinates = {
-            "lat_start": round(
-                np.floor(min(lat_list) * round_factor) / round_factor, digits_required
-            ),
-            "lat_end": round(
-                np.ceil(max(lat_list) * round_factor) / round_factor, digits_required
-            ),
-            "lon_start": round(
-                np.floor(min(lon_list) * round_factor) / round_factor, digits_required
-            ),
-            "lon_end": round(
-                np.ceil(max(lon_list) * round_factor) / round_factor, digits_required
-            ),
+            "lat_start": lat_start,
+            "lat_end": lat_end,
+            "lon_start": lon_start,
+            "lon_end": lon_end,
         }
     else:
         # Area with margin around the min and max coordinate values, according to the resolution

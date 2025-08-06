@@ -371,7 +371,7 @@ def test_get_area_coordinates():
         "lat_start": 1.1,
         "lat_end": 1.2,
         "lon_start": 7.8,
-        "lon_end": 7.8,
+        "lon_end": 7.9,
     }
 
     assert get_area_coordinates([{"lat": 1.101, "lon": 7.8}], map_to_grid=False) == {

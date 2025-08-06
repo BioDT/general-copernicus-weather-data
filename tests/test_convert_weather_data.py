@@ -766,11 +766,7 @@ def test_get_pet_thornthwaite():
                 - 0.43 * effective_temperature_daily[day_index] ** 2
             )
 
-    generated_pet = get_pet_thornthwaite(
-        temperature_daily,
-        day_length,
-        dates_local,
-    )
+    generated_pet = get_pet_thornthwaite(temperature_daily, day_length, dates_local)
     generated_pet_t_eff = get_pet_thornthwaite(
         temperature_daily,
         day_length,
