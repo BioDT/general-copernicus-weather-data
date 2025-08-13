@@ -1,9 +1,12 @@
+# numpy before other packages to ensure compatibility
 numpy==1.26.3
 
+# core libraries
 netCDF4==1.6.5
 scipy==1.14.1
 xarray==2025.1.2
 
+# additional libraries
 astral>=3.2
 cdsapi>=0.7.2
 cfgrib>=0.9.15.0
@@ -13,5 +16,6 @@ paramiko>=3.5.1
 pytest>=8.3.3
 python-dotenv>=1.0.1
 requests>=2.32.3
-timezonefinder>=6.2.0
+timezonefinder==6.2.0
+
 
