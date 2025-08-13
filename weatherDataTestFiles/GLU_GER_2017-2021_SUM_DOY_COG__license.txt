@@ -1,0 +1,7 @@
+Data used without changes according to Creative Commons Attribution 4.0 International (CC-BY-4.0, https://creativecommons.org/licenses/by/4.0/).
+
+Attribution:
+
+Schwieder, M., Lobert, F., Tetteh, G. O., & Erasmi, S. (2024).
+Grassland mowing events across Germany detected from combined Sentinel-2 and Landsat time series for the years 2017 - 2021 [Data set].
+Zenodo. https://doi.org/10.5281/zenodo.10609590
