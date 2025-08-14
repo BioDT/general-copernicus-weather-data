@@ -3,6 +3,7 @@ numpy==1.26.3
 
 # core packages
 netCDF4==1.6.5
+pandas==2.2.0
 scipy==1.14.1
 xarray==2025.1.2
 
@@ -11,7 +12,6 @@ astral>=3.2
 cdsapi>=0.7.2
 cfgrib>=0.9.15.0
 openpyxl>=3.1.2
-pandas>=1.5.0
 paramiko>=3.5.1
 pytest>=8.3.3
 python-dotenv>=1.0.1
