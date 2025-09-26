@@ -577,7 +577,7 @@ def get_area_coordinates(
         resolution (float): Grid resolution (default is 0.1 [degrees], e.g. ERA5 grid resolution used).
         map_to_grid (bool): Map area coordinates to the nearest grid points (default is True,
             otherwise use margin around the coordinates).
-        check_larger_areas (bool): Check if the area is available on the OPeNDAP server,
+        check_larger_areas (bool): Check if weather data for the area is available on the OPeNDAP server,
             look for larger available areas containing it if not (default is False).
         months_list (list): List of (year, month_str) tuples to check for data availability
             (required if check_larger_areas is True).

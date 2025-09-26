@@ -30,6 +30,7 @@ Full function signature:
     months=list(range(1, 13)),
     data_format='grib',
     download_area=True,
+    check_larger_areas=True,
     grid_resolution=0.1,
     final_time_resolution='daily',
     target_folder=None)`
@@ -41,13 +42,16 @@ Parameters:
 - months (list of int): Months list (1-12, default is [1, 2, ... 12]).
 - data_format (str): Data format ('grib' or 'netcdf', default is 'grib').
 - download_area (bool): Download raw weather data for whole area covering all locations from the coordinates list at grid resolution (default is True). If False, data will be downloaded for each location separately (only available for 'netcdf' format).
+- check_larger_areas (bool): If existing weather data for the area from previous downloads is not available on the OPeNDAP server, look for larger available areas containing the area (up to the search limit) for which (some) weather data is already available and use this area (default is True).
 - grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
 - final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
 - target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
 
 ## Developers
-Developed in the BioDT project by Thomas Banitz (UFZ) with contributions by Franziska Taubert (UFZ) 
+Developed in the BioDT project (until 2025-05) by Thomas Banitz (UFZ) with contributions by Franziska Taubert (UFZ) 
 and Tuomas Rossi (CSC).
+
+Further developed (from 2025-06) by Thomas Banitz (UFZ) with contributions by Franziska Taubert (UFZ).
 
 ## Copyright
 Copyright (C) 2024
@@ -62,7 +66,7 @@ You may obtain a copy of the Licence at:
 https://joinup.ec.europa.eu/software/page/eupl
 
 ## Funding
-This project has received funding from the European Union's Horizon Europe Research and Innovation
+The BioDT project has received funding from the European Union's Horizon Europe Research and Innovation
 Programme under grant agreement No 101057437 (BioDT project, https://doi.org/10.3030/101057437).
 The authors acknowledge the EuroHPC Joint Undertaking and CSC - IT Center for Science Ltd., Finland
 for awarding this project access to the EuroHPC supercomputer LUMI, hosted by CSC - IT Center for
