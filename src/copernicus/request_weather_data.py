@@ -293,10 +293,7 @@ def download_weather_data(
             not file_name.is_file() or os.path.getmtime(file_name) < date_cutoff
         ):
             ut.download_file_opendap(
-                file_name.name,
-                file_name.parent.name,
-                file_name.parent,
-                warn_not_found=False,
+                file_name.name, file_name.parent.name, file_name.parent
             )
 
         # Request data from CDS API if forced or file still not found or is older than cutoff date

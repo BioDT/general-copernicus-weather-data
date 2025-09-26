@@ -535,8 +535,8 @@ def test_wind_speed_height_change():
     """Test wind_speed_height_change function."""
     wind_speed = np.array([1, 2, 3, 4, 5])
 
-    # Helper function for conversion factor, log wind profile, no displacement height
     def conversion_factor(height, target_height, rougness_length):
+        """Helper function for conversion factor, log wind profile, no displacement height."""
         return np.log(target_height / rougness_length) / np.log(
             height / rougness_length
         )

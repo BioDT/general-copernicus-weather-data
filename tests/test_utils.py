@@ -33,6 +33,7 @@ from dotenv import dotenv_values
 
 from copernicus.utils import (
     OPENDAP_ROOT,
+    check_area_availability,
     construct_weather_data_file_name,
     download_file_opendap,
     format_month_str,
@@ -339,7 +340,7 @@ def test_upload_file_opendap(tmp_path, caplog):
 
 def test_download_file_opendap(tmp_path, caplog):
     """Test download of a file from the OPeNDAP server."""
-    # Create a temporary file to upload
+    # Create a temporary file name and download
     file_name = "test_file.txt"
     test_folder = "_test_folder"
     local_file_path = tmp_path / file_name
@@ -423,3 +424,97 @@ def test_get_area_coordinates():
 
     with pytest.raises(ValueError):
         get_area_coordinates([{"lat": 1}])  # "lon" key missing
+
+    # Test with area for which larger area with weather data exists on OPeNDAP server
+    coordinates = [
+        {"lat": 46.55, "lon": 10.73},
+        {"lat": 46.88, "lon": 10.52},
+    ]
+
+    assert get_area_coordinates(coordinates) == {
+        "lat_start": 46.5,
+        "lat_end": 46.9,
+        "lon_start": 10.5,
+        "lon_end": 10.8,
+    }
+
+    # Include search for larger area
+    with pytest.raises(ValueError):
+        get_area_coordinates(
+            coordinates, check_larger_areas=True
+        )  # months_list missing
+
+    # Larger area with existing weather data file should be found
+    assert get_area_coordinates(
+        coordinates, check_larger_areas=True, months_list=[(2025, "01")]
+    ) == {
+        "lat_start": 46.5,
+        "lat_end": 46.9,
+        "lon_start": 10.4,
+        "lon_end": 11.0,
+    }
+
+    # More tests of area search in test_check_area_availability function
+
+
+def test_check_area_availability(caplog):
+    """Test area availability check with larger area search for available weather data."""
+    existing_area_coordinates = get_area_coordinates(
+        [{"lat": 46.55, "lon": 11}, {"lat": 46.88, "lon": 10.42}]
+    )
+    smaller_area_coordinates = get_area_coordinates(
+        [{"lat": 46.55, "lon": 10.73}, {"lat": 46.88, "lon": 10.52}]
+    )
+
+    # Test area for which data are available
+    with caplog.at_level("INFO"):
+        assert (
+            check_area_availability(existing_area_coordinates, 0.1, [(2025, "01")])
+            == existing_area_coordinates
+        )
+        assert (
+            "At least one existing weather data file found for "
+            "latitude: 46.5 - 46.9, longitude: 10.4 - 11.0"
+        ) in caplog.text
+
+    caplog.clear()
+
+    # Test smaller area for which data are not available, larger area should be found
+    with caplog.at_level("WARNING"):
+        assert (
+            check_area_availability(smaller_area_coordinates, 0.1, [(2025, "01")])
+            == existing_area_coordinates
+        )
+        assert (
+            "No existing weather data file(s) found for time: 01 2025 - 01 2025, "
+            "latitude: 46.5 - 46.9, longitude: 10.5 - 10.8"
+        ) in caplog.text
+
+    caplog.clear()
+
+    # Larger area required 3 search steps, should not be found with max. 2 steps
+    with caplog.at_level("WARNING"):
+        assert (
+            check_area_availability(
+                smaller_area_coordinates, 0.1, [(2025, "01")], max_search_width=2
+            )
+            == smaller_area_coordinates
+        )
+        assert (
+            "No larger area found within search limits (max. 2 total steps) for time: "
+            "01 2025 - 01 2025 that fully contains latitude: 46.5 - 46.9, longitude: 10.5 - 10.8"
+        ) in caplog.text
+
+    caplog.clear()
+
+    # No data should be found for an unavailable time period for larger area
+    with caplog.at_level("WARNING"):
+        assert (
+            check_area_availability(
+                smaller_area_coordinates, 0.1, [(2025, "no_months")]
+            )
+            == smaller_area_coordinates
+        )
+        assert (
+            "No larger area found within search limits (max. 10 total steps) for time: "
+        ) in caplog.text

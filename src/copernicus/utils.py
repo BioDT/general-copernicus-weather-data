@@ -25,6 +25,7 @@ Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Acce
 
 import calendar
 import csv
+import itertools
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -420,7 +421,7 @@ def download_file_opendap(
     new_file_name=None,
     attempts=5,
     delay=2,
-    warn_not_found=True,
+    log_infos=True,
 ):
     """
     Download a file from OPeNDAP server 'grasslands-pdt'.
@@ -432,13 +433,15 @@ def download_file_opendap(
         new_file_name (str): New name for downloaded file (default is None, file_name will be used).
         attempts (int): Number of attempts to download the file (default is 5).
         delay (int): Number of seconds to wait between attempts (default is 2).
-        warn_not_found (bool): Warn if file not found on OPeNDAP server (default is True).
+        log_infos (bool): Log info messages (default is True).
 
     Returns:
         None
     """
     url = f"{OPENDAP_ROOT}{opendap_folder}/{file_name}"
-    logger.info(f"Trying to download '{url}' ...")
+
+    if log_infos:
+        logger.info(f"Trying to download '{url}' ...")
 
     while attempts > 0:
         try:
@@ -460,13 +463,14 @@ def download_file_opendap(
                 with open(target_file, "wb") as file:
                     file.write(response.content)
 
-                logger.info(f"File downloaded successfully to '{target_file}'.")
+                if log_infos:
+                    logger.info(f"File downloaded successfully to '{target_file}'.")
+
                 return
             elif response.status_code == 404:
-                if warn_not_found:
+                if log_infos:
                     logger.warning(f"File '{file_name}' not found on OPeNDAP server.")
-                else:
-                    logger.info(f"File '{file_name}' not found on OPeNDAP server.")
+
                 return
             else:
                 attempts -= 1
@@ -479,7 +483,8 @@ def download_file_opendap(
             if attempts > 0:
                 time.sleep(delay)
 
-    logger.warning(f"File '{file_name}' download failed repeatedly.")
+    if log_infos:
+        logger.warning(f"File '{file_name}' download failed repeatedly.")
 
 
 def upload_file_opendap(file_name, opendap_folder, *, new_file_name=None):
@@ -556,7 +561,14 @@ def upload_file_opendap(file_name, opendap_folder, *, new_file_name=None):
         logger.warning(f"OPeNDAP upload skipped: File '{file_name}' not found.")
 
 
-def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
+def get_area_coordinates(
+    coordinates_list,
+    *,
+    resolution=0.1,
+    map_to_grid=True,
+    check_larger_areas=False,
+    months_list=None,
+):
     """
     Get area coordinates based on a list of coordinates.
 
@@ -565,6 +577,10 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
         resolution (float): Grid resolution (default is 0.1 [degrees], e.g. ERA5 grid resolution used).
         map_to_grid (bool): Map area coordinates to the nearest grid points (default is True,
             otherwise use margin around the coordinates).
+        check_larger_areas (bool): Check if the area is available on the OPeNDAP server,
+            look for larger available areas containing it if not (default is False).
+        months_list (list): List of (year, month_str) tuples to check for data availability
+            (required if check_larger_areas is True).
 
     Returns:
         dict: Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys.
@@ -596,20 +612,17 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
             logger.error(e)
             raise
 
+    if check_larger_areas and not months_list:
+        try:
+            raise ValueError(
+                "Months list must be provided if check_larger_areas is True!"
+            )
+        except ValueError as e:
+            logger.error(e)
+            raise
+
     lat_list = [coordinates["lat"] for coordinates in coordinates_list]
     lon_list = [coordinates["lon"] for coordinates in coordinates_list]
-
-    def get_max_decimal_digits(list_of_floats):
-        """Helper function to get maximum number of decimal digits in a list of floats."""
-        max_decimal_digits = 0
-
-        for f in list_of_floats:
-            str_f = str(f)
-            decimal_digits = len(str_f.split(".")[1]) if "." in str_f else 0
-            max_decimal_digits = max(max_decimal_digits, decimal_digits)
-
-        return max_decimal_digits
-
     digits_required = get_max_decimal_digits(lat_list + lon_list + [resolution])
 
     if map_to_grid:
@@ -641,6 +654,11 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
             "lon_start": lon_start,
             "lon_end": lon_end,
         }
+
+        if check_larger_areas:
+            area_coordinates = check_area_availability(
+                area_coordinates, resolution, months_list
+            )
     else:
         # Area with margin around the min and max coordinate values, according to the resolution
         area_coordinates = {
@@ -649,5 +667,122 @@ def get_area_coordinates(coordinates_list, *, resolution=0.1, map_to_grid=True):
             "lon_start": round(min(lon_list) - resolution, digits_required),
             "lon_end": round(max(lon_list) + resolution, digits_required),
         }
+
+    return area_coordinates
+
+
+def get_max_decimal_digits(list_of_floats):
+    """
+    Get maximum number of decimal digits in a list of floats.
+
+    Parameters:
+        list_of_floats (list): List of float numbers.
+
+    Returns:
+        int: Maximum number of decimal digits in the list of floats.
+    """
+    max_decimal_digits = 0
+
+    for f in list_of_floats:
+        str_f = str(f)
+        decimal_digits = len(str_f.split(".")[1]) if "." in str_f else 0
+        max_decimal_digits = max(max_decimal_digits, decimal_digits)
+
+    return max_decimal_digits
+
+
+def check_area_availability(
+    area_coordinates, resolution, months_list, *, max_search_width=10
+):
+    """
+    Check if the area defined by area_coordinates is available on the OPeNDAP server,
+    look for larger available areas if not.
+
+    Parameters:
+        area_coordinates (dict): Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys.
+        resolution (float): Grid resolution (0.1 or 0.25 degrees).
+        months_list (list): List of (year, month_str) tuples to check for data availability.
+        max_search_width (int): Maximum total number of steps to increase the area size in any direction
+            (default is 10, i.e. area can be increased e.g. by 10 steps north or by 6 steps north and 4 steps east
+            or by 5 steps north, 2 steps east and 3 steps west, etc.).
+
+    Returns:
+        dict: Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys of an available area if found,
+            otherwise the original area_coordinates.
+    """
+    precision = get_max_decimal_digits([resolution])
+
+    def check_file_availability(area_coordinates, year, month_str, precision):
+        """Helper function to check if raw weather file exists locally or on OPeNDAP for given area and time period."""
+        file_name = construct_weather_data_file_name(
+            area_coordinates,
+            folder="weatherDataRaw",
+            data_format="grib",
+            time_specifier=f"{year}_{month_str}",
+            data_specifier="hourly",
+            precision=precision,
+        )
+
+        if not file_name.is_file():
+            download_file_opendap(
+                file_name.name,
+                file_name.parent.name,
+                file_name.parent,
+                log_infos=False,
+            )
+
+        if file_name.is_file():
+            # At least one file found for the area
+            logger.info(
+                "At least one existing weather data file found for "
+                f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
+                f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']} "
+                f"('{file_name}'). "
+                "Using these area coordinates."
+            )
+            return True
+
+        # No file found for the area
+        return False
+
+    # First check the original area
+    for year, month_str in months_list:
+        if check_file_availability(area_coordinates, year, month_str, precision):
+            return area_coordinates
+
+    logger.warning(
+        "No existing weather data file(s) found for time: "
+        f"{months_list[0][1]} {months_list[0][0]} - {months_list[-1][1]} {months_list[-1][0]}, "
+        f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
+        f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']}."
+    )
+
+    # No file found for the original area, increase area by any combination of steps in each direction
+    # for sum of steps up to max_search_width. Search can easily be time-consuming, but new data
+    # requests are time-consuming as well, so it is worth checking for existing data first.
+    for search_width in range(1, max_search_width + 1):
+        for steps in itertools.product(range(search_width + 1), repeat=4):
+            if sum(steps) != search_width:
+                continue
+
+            # NOTE: steps = (north_steps, east_steps, south_steps, west_steps)
+            search_area = area_coordinates.copy()
+            search_area["lat_end"] += resolution * steps[0]
+            search_area["lon_end"] += resolution * steps[1]
+            search_area["lat_start"] -= resolution * steps[2]
+            search_area["lon_start"] -= resolution * steps[3]
+
+            for year, month_str in months_list:
+                if check_file_availability(search_area, year, month_str, precision):
+                    return search_area
+
+    logger.warning(
+        f"No larger area found within search limits (max. {max_search_width} total steps) for time: "
+        f"{months_list[0][1]} {months_list[0][0]} - {months_list[-1][1]} {months_list[-1][0]} "
+        "that fully contains "
+        f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
+        f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']} "
+        "and has existing weather file(s). Using the original area coordinates."
+    )
 
     return area_coordinates

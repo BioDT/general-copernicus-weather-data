@@ -184,7 +184,7 @@ def test_configure_data_requests():
     def get_target_request(
         coordinates, months_list, *, data_format="grib", precision=6
     ):
-        """Helper function to define target requests"""
+        """Helper function to define target requests."""
         target_requests = []
 
         for year, month_str in months_list:

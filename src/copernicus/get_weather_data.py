@@ -92,6 +92,7 @@ def get_weather_data(
     months=list(range(1, 13)),
     data_format="grib",
     download_area=True,
+    check_larger_areas=True,
     grid_resolution=0.1,
     final_time_resolution="daily",
     target_folder=None,
@@ -108,6 +109,8 @@ def get_weather_data(
         download_area (bool): Download raw weather data for whole area covering all locations from the coordinates list
             at grid resolution (default is True).
             If False, data will be downloaded for each location separately (only available for 'netcdf' format).
+        check_larger_areas (bool): Check if the area is available on the OPeNDAP server,
+            look for larger available areas containing it if not (default is True).
         grid_resolution (float): Grid resolution (0.1 or 0.25, default is 0.1).
         final_time_resolution (str): Resolution for final text file ('hourly' or 'daily', default is 'daily').
         target_folder (str or Path): Target folder for .txt files (default is 'weatherDataPrepared').
@@ -127,7 +130,10 @@ def get_weather_data(
     if download_area:
         # Configure requests to download whole area (for each time period)
         area_coordinates = ut.get_area_coordinates(
-            coordinates_list, resolution=grid_resolution
+            coordinates_list,
+            resolution=grid_resolution,
+            check_larger_areas=check_larger_areas,
+            months_list=months_list,
         )
         logger.info("Requesting weather data for area ...")
         logger.info(
