@@ -535,7 +535,7 @@ def test_wind_speed_height_change():
     """Test wind_speed_height_change function."""
     wind_speed = np.array([1, 2, 3, 4, 5])
 
-    def conversion_factor(height, target_height, rougness_length):
+    def _conversion_factor(height, target_height, rougness_length):
         """Helper function for conversion factor, log wind profile, no displacement height."""
         return np.log(target_height / rougness_length) / np.log(
             height / rougness_length
@@ -544,7 +544,7 @@ def test_wind_speed_height_change():
     # Test with default values
     assert np.allclose(
         wind_speed_height_change(wind_speed),
-        wind_speed * conversion_factor(10, 2, 0.03),
+        wind_speed * _conversion_factor(10, 2, 0.03),
         atol=0,
         rtol=1e-12,
     )
@@ -552,7 +552,7 @@ def test_wind_speed_height_change():
     # Test with custom values
     assert np.allclose(
         wind_speed_height_change(wind_speed, target_height=5, roughness_length=0.1),
-        wind_speed * conversion_factor(10, 5, 0.1),
+        wind_speed * _conversion_factor(10, 5, 0.1),
         atol=0,
         rtol=1e-12,
     )
@@ -561,7 +561,7 @@ def test_wind_speed_height_change():
         wind_speed_height_change(
             wind_speed, initial_height=50, target_height=5, roughness_length=0.001
         ),
-        wind_speed * conversion_factor(50, 5, 0.001),
+        wind_speed * _conversion_factor(50, 5, 0.001),
         atol=0,
         rtol=1e-12,
     )

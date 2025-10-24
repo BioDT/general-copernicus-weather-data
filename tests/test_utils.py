@@ -166,7 +166,7 @@ def test_list_to_file(tmp_path):
         "csv": ["col1;col2;col3", "col1", "col1;col2;col3"],
     }
 
-    def validate_file_content(content, target_strings, *, column_names_string=None):
+    def _validate_file_content(content, target_strings, *, column_names_string=None):
         if column_names_string is None:
             for index, target_string in enumerate(target_strings):
                 assert content[index].strip() == target_string
@@ -187,13 +187,13 @@ def test_list_to_file(tmp_path):
 
                 if isinstance(list_to_write[0], dict):
                     # Keys of first entry are used as column names for dictionaries
-                    validate_file_content(
+                    _validate_file_content(
                         content,
                         target_strings[suffix][index],
                         column_names_string=column_names_strings[suffix][index],
                     )
                 else:
-                    validate_file_content(content, target_strings[suffix][index])
+                    _validate_file_content(content, target_strings[suffix][index])
 
             # Add column names
             list_to_file(
@@ -202,7 +202,7 @@ def test_list_to_file(tmp_path):
 
             with open(file_path, "r", encoding="utf-8") as file:
                 content = file.readlines()
-                validate_file_content(
+                _validate_file_content(
                     content,
                     target_strings[suffix][index],
                     column_names_string=column_names_strings[suffix][index],

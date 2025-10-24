@@ -712,7 +712,7 @@ def check_area_availability(
     """
     precision = get_max_decimal_digits([resolution])
 
-    def check_file_availability(area_coordinates, year, month_str, precision):
+    def _check_file_availability(area_coordinates, year, month_str, precision):
         """Helper function to check if raw weather file exists locally or on OPeNDAP for given area and time period."""
         file_name = construct_weather_data_file_name(
             area_coordinates,
@@ -747,7 +747,7 @@ def check_area_availability(
 
     # First check the original area
     for year, month_str in months_list:
-        if check_file_availability(area_coordinates, year, month_str, precision):
+        if _check_file_availability(area_coordinates, year, month_str, precision):
             return area_coordinates
 
     logger.warning(
@@ -773,7 +773,7 @@ def check_area_availability(
             search_area["lon_start"] -= resolution * steps[3]
 
             for year, month_str in months_list:
-                if check_file_availability(search_area, year, month_str, precision):
+                if _check_file_availability(search_area, year, month_str, precision):
                     return search_area
 
     logger.warning(

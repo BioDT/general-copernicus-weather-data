@@ -89,7 +89,8 @@ def convert_units(values, unit_conversion):
 
 def par_from_net_radiation(values):
     """
-    Calculate Photosynthetically Active Radiation (PAR) from net radiation values.
+    Calculate
+     (PAR) from net radiation values.
 
     Parameters:
         values (float or numpy.ndarray): Net radiation values (unit: J/m²/d).

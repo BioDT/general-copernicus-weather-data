@@ -181,7 +181,7 @@ def test_configure_data_requests():
     coordinates = {"lat_start": 1.1, "lat_end": 1.2, "lon_start": 7.8, "lon_end": 7.8}
     months_list = [(2020, "01-04"), (2020, "05")]
 
-    def get_target_request(
+    def _get_target_request(
         coordinates, months_list, *, data_format="grib", precision=6
     ):
         """Helper function to define target requests."""
@@ -209,17 +209,17 @@ def test_configure_data_requests():
 
     assert configure_data_requests(
         test_specs, coordinates, months_list
-    ) == get_target_request(coordinates, months_list)
+    ) == _get_target_request(coordinates, months_list)
 
     # Test with different data format
     assert configure_data_requests(
         test_specs, coordinates, months_list, data_format="netcdf"
-    ) == get_target_request(coordinates, months_list, data_format="netcdf")
+    ) == _get_target_request(coordinates, months_list, data_format="netcdf")
 
     # Test with different precision
     assert configure_data_requests(
         test_specs, coordinates, months_list, coordinate_digits=3
-    ) == get_target_request(coordinates, months_list, precision=3)
+    ) == _get_target_request(coordinates, months_list, precision=3)
 
     # Test invalid data format
     with pytest.raises(ValueError):
@@ -249,7 +249,7 @@ def test_weather_data_to_txt_file():
     for file_path in glob.glob(os.path.join("weatherDataTestFiles", "*__hourly.grib")):
         shutil.copy(file_path, "weatherDataRaw")
 
-    def compare_file_contents(example_type):
+    def _compare_file_contents(example_type):
         """Helper function to compare contents of generated files with expected contents."""
         raw_example_string = f"example_{example_type}__"
 
@@ -277,7 +277,7 @@ def test_weather_data_to_txt_file():
         coordinate_digits=1,
         target_folder="weatherDataTestFiles",
     )
-    compare_file_contents("grib_area")
+    _compare_file_contents("grib_area")
 
     # NetCDF files excluded from comparison
     # tests passed locally, but not on GitHub
