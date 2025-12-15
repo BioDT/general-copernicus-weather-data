@@ -187,3 +187,6 @@ weatherDataTestResults
 
 # logging with rotating files
 copernicus_app.log.*
+
+# internal test files
+_request_weather_data_area.py
