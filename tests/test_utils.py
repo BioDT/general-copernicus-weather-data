@@ -327,9 +327,21 @@ def test_upload_file_opendap(tmp_path, caplog):
     ):
         # Test that file exists under the URL and has the expected content
         file_url = f"{OPENDAP_ROOT}{test_folder}/{file_path.name}"
-        response = requests.get(file_url)
-        assert response.status_code == 200, "File not found on OPeNDAP server."
-        assert response.content.decode() == test_content, "File content does not match."
+        try:
+            response = requests.get(file_url, timeout=30)
+            assert response.status_code == 200, (
+                f"File not found on OPeNDAP server. Status: {response.status_code}"
+            )
+            assert response.content.decode() == test_content, (
+                f"File content does not match. Expected: {test_content[:50]}..., "
+                f"Got: {response.content.decode()[:50]}..."
+            )
+        except requests.Timeout:
+            pytest.fail(f"Request timed out after 30 seconds for URL: {file_url}")
+        except requests.ConnectionError as e:
+            pytest.fail(f"Connection error while accessing OPeNDAP server: {e}")
+        except requests.RequestException as e:
+            pytest.fail(f"Request failed: {e}")
     else:
         # Test that correct warning is logged when not all credentials are available
         assert (

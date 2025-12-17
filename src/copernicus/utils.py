@@ -445,7 +445,7 @@ def download_file_opendap(
 
     while attempts > 0:
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=30)
 
             # # Variant with authentication using OPeNDAP credentials from .env file.
             # dotenv_config = dotenv_values(".env")
@@ -477,7 +477,7 @@ def download_file_opendap(
 
                 if attempts > 0:
                     time.sleep(delay)
-        except requests.ConnectionError:
+        except (requests.ConnectionError, requests.Timeout):
             attempts -= 1
 
             if attempts > 0:
