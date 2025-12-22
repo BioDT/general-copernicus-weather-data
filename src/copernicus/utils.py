@@ -705,7 +705,6 @@ def check_area_availability(area_coordinates, resolution, months_list):
         dict: Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys of an available area if found,
             otherwise the original area_coordinates.
     """
-
     precision = get_max_decimal_digits([resolution])
 
     # Get list of available files
@@ -720,20 +719,24 @@ def check_area_availability(area_coordinates, resolution, months_list):
         )
         return area_coordinates
 
-    # Parse filenames to extract area coordinates
-    available_areas = parse_area_coordinates_from_files(available_files, precision)
+    # Parse filenames to extract area coordinates AND time periods
+    available_areas_with_times = parse_area_coordinates_with_times_from_files(
+        available_files, precision
+    )
 
-    if not available_areas:
+    if not available_areas_with_times:
         logger.warning(
             "Could not parse area coordinates from available files. "
             "Using original area coordinates."
         )
         return area_coordinates
 
-    # Find areas that contain the required area
-    containing_areas = find_containing_areas(area_coordinates, available_areas)
+    # Find areas that contain the required area and count time coverage
+    containing_areas_with_coverage = find_containing_areas_with_time_coverage(
+        area_coordinates, available_areas_with_times, months_list
+    )
 
-    if not containing_areas:
+    if not containing_areas_with_coverage:
         logger.warning(
             f"No existing area found for time period: "
             f"{months_list[0][1]} {months_list[0][0]} - {months_list[-1][1]} {months_list[-1][0]} "
@@ -744,14 +747,21 @@ def check_area_availability(area_coordinates, resolution, months_list):
         )
         return area_coordinates
 
-    # Return the smallest containing area (minimize download size)
-    best_area = min(containing_areas, key=lambda a: calculate_area_size(a))
+    # Return area with best time coverage (then smallest if tied)
+    best_area_info = max(
+        containing_areas_with_coverage,
+        key=lambda x: (x["coverage_count"], -calculate_area_size(x["area"])),
+    )
+    best_area = best_area_info["area"]
+    coverage_count = best_area_info["coverage_count"]
+    total_count = len(months_list)
 
     logger.info(
         "Found existing weather data file(s) for "
         f"latitude: {best_area['lat_start']} - {best_area['lat_end']}, "
         f"longitude: {best_area['lon_start']} - {best_area['lon_end']} "
-        f"(containing required area). Using these coordinates."
+        f"(containing required area, covering {coverage_count}/{total_count} required time periods). "
+        "Using these coordinates."
     )
 
     return best_area
@@ -828,9 +838,9 @@ def get_opendap_file_list(opendap_folder, months_list):
     return opendap_files
 
 
-def parse_area_coordinates_from_files(file_list, precision):
+def parse_area_coordinates_with_times_from_files(file_list, precision):
     """
-    Parse area coordinates from file names.
+    Parse area coordinates and time periods from file names.
 
     Expected format: lat{start}_{end}_lon{start}_{end}__{year}_{month}__*.grib
 
@@ -839,65 +849,83 @@ def parse_area_coordinates_from_files(file_list, precision):
         precision (int): Decimal precision for coordinates.
 
     Returns:
-        list: List of unique area coordinate dictionaries.
+        dict: Dictionary mapping area tuples to sets of (year, month_str) tuples.
     """
-    unique_areas = set()  # Use set to automatically deduplicate
-    pattern = r"lat([-\d.]+)_([-\d.]+)_lon([-\d.]+)_([-\d.]+)__"
+    areas_with_times = {}  # {area_tuple: {(year, month_str), ...}}
+    pattern = r"lat([-\d.]+)_([-\d.]+)_lon([-\d.]+)_([-\d.]+)__(\d{4})_([\d-]+)__"
 
     for filename in file_list:
         match = re.search(pattern, filename)
 
         if match:
             try:
-                # Create tuple for hashable deduplication
+                # Create area tuple
                 area_tuple = (
                     round(float(match.group(1)), precision),  # lat_start
                     round(float(match.group(2)), precision),  # lat_end
                     round(float(match.group(3)), precision),  # lon_start
                     round(float(match.group(4)), precision),  # lon_end
                 )
-                unique_areas.add(area_tuple)
+
+                # Extract time period
+                year = int(match.group(5))
+                month_str = match.group(6)
+                time_tuple = (year, month_str)
+
+                # Add to dictionary
+                if area_tuple not in areas_with_times:
+                    areas_with_times[area_tuple] = set()
+
+                areas_with_times[area_tuple].add(time_tuple)
+
             except ValueError:
                 logger.debug(f"Could not parse coordinates from file: {filename}")
 
-    # Convert tuples back to dictionaries
-    areas = [
-        {
-            "lat_start": area[0],
-            "lat_end": area[1],
-            "lon_start": area[2],
-            "lon_end": area[3],
-        }
-        for area in unique_areas
-    ]
-
-    return areas
+    return areas_with_times
 
 
-def find_containing_areas(required_area, available_areas, precision=6):
+def find_containing_areas_with_time_coverage(
+    required_area, available_areas_with_times, months_list, *, epsilon=1e-6
+):
     """
-    Find available areas that contain the required area.
+    Find available areas that contain the required area and calculate time coverage.
 
     Parameters:
         required_area (dict): Required area coordinates.
-        available_areas (list): List of available area coordinate dictionaries.
-        precision (int): Decimal precision for coordinate comparison (default is 6).
-
+        available_areas_with_times (dict): Dictionary mapping area tuples to sets of time periods.
+        months_list (list): List of required (year, month_str) tuples.
+        epsilon (float): Tolerance for coordinate comparison (default is 1e-6).
     Returns:
-        list: List of area dictionaries that contain the required area.
+        list: List of dicts with 'area' and 'coverage_count' keys.
     """
     containing_areas = []
-    epsilon = 10 ** (-precision)  # Tolerance for floating-point comparison
+    required_times = set(months_list)
 
-    for area in available_areas:
-        # Check if this area contains the required area (with small tolerance)
+    for area_tuple, available_times in available_areas_with_times.items():
+        area = {
+            "lat_start": area_tuple[0],
+            "lat_end": area_tuple[1],
+            "lon_start": area_tuple[2],
+            "lon_end": area_tuple[3],
+        }
+
+        # Check if this area contains the required area
         if (
             area["lat_start"] <= required_area["lat_start"] + epsilon
             and area["lat_end"] >= required_area["lat_end"] - epsilon
             and area["lon_start"] <= required_area["lon_start"] + epsilon
             and area["lon_end"] >= required_area["lon_end"] - epsilon
         ):
-            containing_areas.append(area)
+            # Count how many required time periods are available for this area
+            coverage_count = len(required_times & available_times)
+
+            containing_areas.append(
+                {
+                    "area": area,
+                    "coverage_count": coverage_count,
+                    "times": available_times,
+                }
+            )
 
     return containing_areas
 
