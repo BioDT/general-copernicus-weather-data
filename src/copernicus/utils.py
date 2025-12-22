@@ -25,7 +25,7 @@ Science Ltd., Finland and the LUMI consortium through a EuroHPC Development Acce
 
 import calendar
 import csv
-import itertools
+import re
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -691,9 +691,7 @@ def get_max_decimal_digits(list_of_floats):
     return max_decimal_digits
 
 
-def check_area_availability(
-    area_coordinates, resolution, months_list, *, max_search_width=10
-):
+def check_area_availability(area_coordinates, resolution, months_list):
     """
     Check if the area defined by area_coordinates is available on the OPeNDAP server,
     look for larger available areas if not.
@@ -702,87 +700,218 @@ def check_area_availability(
         area_coordinates (dict): Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys.
         resolution (float): Grid resolution (0.1 or 0.25 degrees).
         months_list (list): List of (year, month_str) tuples to check for data availability.
-        max_search_width (int): Maximum total number of steps to increase the area size in any direction
-            (default is 10, i.e. area can be increased e.g. by 10 steps north or by 6 steps north and 4 steps east
-            or by 5 steps north, 2 steps east and 3 steps west, etc.).
 
     Returns:
         dict: Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys of an available area if found,
             otherwise the original area_coordinates.
     """
+
     precision = get_max_decimal_digits([resolution])
 
-    def _check_file_availability(area_coordinates, year, month_str, precision):
-        """Helper function to check if raw weather file exists locally or on OPeNDAP for given area and time period."""
-        file_name = construct_weather_data_file_name(
-            area_coordinates,
-            folder="weatherDataRaw",
-            data_format="grib",
-            time_specifier=f"{year}_{month_str}",
-            data_specifier="hourly",
-            precision=precision,
+    # Get list of available files
+    local_folder = Path("weatherDataRaw")
+    available_files = get_available_grib_files(local_folder, months_list)
+
+    if not available_files:
+        logger.warning(
+            "No existing weather data files found for time period: "
+            f"{months_list[0][1]} {months_list[0][0]} - {months_list[-1][1]} {months_list[-1][0]}. "
+            "Using original area coordinates."
         )
+        return area_coordinates
 
-        if not file_name.is_file():
-            download_file_opendap(
-                file_name.name,
-                file_name.parent.name,
-                file_name.parent,
-                log_infos=False,
-            )
+    # Parse filenames to extract area coordinates
+    available_areas = parse_area_coordinates_from_files(available_files, precision)
 
-        if file_name.is_file():
-            # At least one file found for the area
-            logger.info(
-                "At least one existing weather data file found for "
-                f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
-                f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']} "
-                f"('{file_name}'). "
-                "Using these area coordinates."
-            )
-            return True
+    if not available_areas:
+        logger.warning(
+            "Could not parse area coordinates from available files. "
+            "Using original area coordinates."
+        )
+        return area_coordinates
 
-        # No file found for the area
-        return False
+    # Find areas that contain the required area
+    containing_areas = find_containing_areas(area_coordinates, available_areas)
 
-    # First check the original area
-    for year, month_str in months_list:
-        if _check_file_availability(area_coordinates, year, month_str, precision):
-            return area_coordinates
+    if not containing_areas:
+        logger.warning(
+            f"No existing area found for time period: "
+            f"{months_list[0][1]} {months_list[0][0]} - {months_list[-1][1]} {months_list[-1][0]} "
+            "that fully contains "
+            f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
+            f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']}. "
+            "Using original area coordinates."
+        )
+        return area_coordinates
 
-    logger.warning(
-        "No existing weather data file(s) found for time: "
-        f"{months_list[0][1]} {months_list[0][0]} - {months_list[-1][1]} {months_list[-1][0]}, "
-        f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
-        f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']}."
+    # Return the smallest containing area (minimize download size)
+    best_area = min(containing_areas, key=lambda a: calculate_area_size(a))
+
+    logger.info(
+        "Found existing weather data file(s) for "
+        f"latitude: {best_area['lat_start']} - {best_area['lat_end']}, "
+        f"longitude: {best_area['lon_start']} - {best_area['lon_end']} "
+        f"(containing required area). Using these coordinates."
     )
 
-    # No file found for the original area, increase area by any combination of steps in each direction
-    # for sum of steps up to max_search_width. Search can easily be time-consuming, but new data
-    # requests are time-consuming as well, so it is worth checking for existing data first.
-    for search_width in range(1, max_search_width + 1):
-        for steps in itertools.product(range(search_width + 1), repeat=4):
-            if sum(steps) != search_width:
-                continue
+    return best_area
 
-            # NOTE: steps = (north_steps, east_steps, south_steps, west_steps)
-            search_area = area_coordinates.copy()
-            search_area["lat_end"] += resolution * steps[0]
-            search_area["lon_end"] += resolution * steps[1]
-            search_area["lat_start"] -= resolution * steps[2]
-            search_area["lon_start"] -= resolution * steps[3]
 
-            for year, month_str in months_list:
-                if _check_file_availability(search_area, year, month_str, precision):
-                    return search_area
+def get_available_grib_files(local_folder, months_list):
+    """
+    Get list of available GRIB filenames from local folder and OPeNDAP.
 
-    logger.warning(
-        f"No larger area found within search limits (max. {max_search_width} total steps) for time: "
-        f"{months_list[0][1]} {months_list[0][0]} - {months_list[-1][1]} {months_list[-1][0]} "
-        "that fully contains "
-        f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
-        f"longitude: {area_coordinates['lon_start']} - {area_coordinates['lon_end']} "
-        "and has existing weather file(s). Using the original area coordinates."
-    )
+    Parameters:
+        local_folder (Path): Local folder to check for files.
+        months_list (list): List of (year, month_str) tuples.
 
-    return area_coordinates
+    Returns:
+        list: List of filenames as strings.
+    """
+    available_filenames = set()  # Use set for automatic deduplication
+
+    # Get local files
+    if local_folder.exists():
+        for year, month_str in months_list:
+            # Find all files matching the time period pattern
+            pattern = f"*__{year}_{month_str}__*.grib"
+            local_files = local_folder.glob(pattern)
+            available_filenames.update(file.name for file in local_files)
+
+    # Get OPeNDAP files (already returns strings)
+    opendap_files = get_opendap_file_list(local_folder.name, months_list)
+    available_filenames.update(opendap_files)
+
+    return list(available_filenames)
+
+
+def get_opendap_file_list(opendap_folder, months_list):
+    """
+    Get list of GRIB files available on OPeNDAP server for given time periods.
+    Uses HTTP directory listing with regex parsing of HTML response.
+
+    Parameters:
+        opendap_folder (str): Folder name on OPeNDAP server.
+        months_list (list): List of (year, month_str) tuples.
+
+    Returns:
+        list: List of file names (strings).
+    """
+    opendap_files = []
+
+    try:
+        # Try to get directory listing via HTTP
+        url = f"{OPENDAP_ROOT}{opendap_folder}/"
+        response = requests.get(url, timeout=30)
+
+        if response.status_code == 200:
+            # Parse HTML directory listing
+
+            # Look for .grib files in the HTML
+            pattern = r'href="([^"]*\.grib)"'
+            matches = re.findall(pattern, response.text)
+
+            # Filter by time period
+            for file_name in matches:
+                for year, month_str in months_list:
+                    if f"__{year}_{month_str}__" in file_name:
+                        opendap_files.append(file_name)
+                        break
+        else:
+            logger.debug(
+                f"Could not retrieve OPeNDAP directory listing (status: {response.status_code})"
+            )
+
+    except requests.RequestException as e:
+        logger.debug(f"Could not retrieve OPeNDAP directory listing: {e}")
+
+    return opendap_files
+
+
+def parse_area_coordinates_from_files(file_list, precision):
+    """
+    Parse area coordinates from file names.
+
+    Expected format: lat{start}_{end}_lon{start}_{end}__{year}_{month}__*.grib
+
+    Parameters:
+        file_list (list): List of file names (strings).
+        precision (int): Decimal precision for coordinates.
+
+    Returns:
+        list: List of unique area coordinate dictionaries.
+    """
+    unique_areas = set()  # Use set to automatically deduplicate
+    pattern = r"lat([-\d.]+)_([-\d.]+)_lon([-\d.]+)_([-\d.]+)__"
+
+    for filename in file_list:
+        match = re.search(pattern, filename)
+
+        if match:
+            try:
+                # Create tuple for hashable deduplication
+                area_tuple = (
+                    round(float(match.group(1)), precision),  # lat_start
+                    round(float(match.group(2)), precision),  # lat_end
+                    round(float(match.group(3)), precision),  # lon_start
+                    round(float(match.group(4)), precision),  # lon_end
+                )
+                unique_areas.add(area_tuple)
+            except ValueError:
+                logger.debug(f"Could not parse coordinates from file: {filename}")
+
+    # Convert tuples back to dictionaries
+    areas = [
+        {
+            "lat_start": area[0],
+            "lat_end": area[1],
+            "lon_start": area[2],
+            "lon_end": area[3],
+        }
+        for area in unique_areas
+    ]
+
+    return areas
+
+
+def find_containing_areas(required_area, available_areas, precision=6):
+    """
+    Find available areas that contain the required area.
+
+    Parameters:
+        required_area (dict): Required area coordinates.
+        available_areas (list): List of available area coordinate dictionaries.
+        precision (int): Decimal precision for coordinate comparison (default is 6).
+
+    Returns:
+        list: List of area dictionaries that contain the required area.
+    """
+    containing_areas = []
+    epsilon = 10 ** (-precision)  # Tolerance for floating-point comparison
+
+    for area in available_areas:
+        # Check if this area contains the required area (with small tolerance)
+        if (
+            area["lat_start"] <= required_area["lat_start"] + epsilon
+            and area["lat_end"] >= required_area["lat_end"] - epsilon
+            and area["lon_start"] <= required_area["lon_start"] + epsilon
+            and area["lon_end"] >= required_area["lon_end"] - epsilon
+        ):
+            containing_areas.append(area)
+
+    return containing_areas
+
+
+def calculate_area_size(area):
+    """
+    Calculate the size of an area (for finding smallest containing area).
+
+    Parameters:
+        area (dict): Area coordinates dictionary.
+
+    Returns:
+        float: Area size (lat_range * lon_range).
+    """
+    lat_range = area["lat_end"] - area["lat_start"]
+    lon_range = area["lon_end"] - area["lon_start"]
+    return lat_range * lon_range
