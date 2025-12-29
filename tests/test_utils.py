@@ -36,15 +36,19 @@ from copernicus.utils import (
     check_area_availability,
     construct_weather_data_file_name,
     download_file_opendap,
+    find_containing_areas_with_time_coverage,
     format_month_str,
     format_offset,
     get_area_coordinates,
+    get_available_grib_files,
     get_day_length,
     get_days_in_month,
     get_days_in_year,
     get_file_suffix,
+    get_opendap_file_list,
     get_time_zone,
     list_to_file,
+    parse_area_coordinates_with_times_from_files,
     upload_file_opendap,
 )
 
@@ -477,7 +481,15 @@ def test_check_area_availability(caplog):
     smaller_area_coordinates = get_area_coordinates(
         [{"lat": 46.55, "lon": 10.73}, {"lat": 46.88, "lon": 10.52}]
     )
-
+    non_existing_area_coordinates = get_area_coordinates(
+        [{"lat": 0, "lon": 0}, {"lat": 0.1, "lon": 0.1}]
+    )
+    existing_area_coordinates_with_2_areas = get_area_coordinates(
+        [{"lat": 47.05, "lon": 11.15}]
+    )
+    smaller_containing_area_coordinates = get_area_coordinates(
+        [{"lat": 47.05, "lon": 11.15}, {"lat": 47.05, "lon": 11.05}]
+    )
     # Test area for which data are available
     with caplog.at_level("INFO"):
         assert (
@@ -485,41 +497,50 @@ def test_check_area_availability(caplog):
             == existing_area_coordinates
         )
         assert (
-            "At least one existing weather data file found for "
+            "Found existing weather data file(s) for the required area "
             "latitude: 46.5 - 46.9, longitude: 10.4 - 11.0"
         ) in caplog.text
 
     caplog.clear()
 
     # Test smaller area for which data are not available, larger area should be found
-    with caplog.at_level("WARNING"):
+    with caplog.at_level("INFO"):
         assert (
             check_area_availability(smaller_area_coordinates, 0.1, [(2025, "01")])
             == existing_area_coordinates
         )
-        assert (
-            "No existing weather data file(s) found for time: 01 2025 - 01 2025, "
-            "latitude: 46.5 - 46.9, longitude: 10.5 - 10.8"
-        ) in caplog.text
+        assert ("Found existing weather data file(s) for ") in caplog.text
+        assert ("containing required area") in caplog.text
 
     caplog.clear()
 
-    # Larger area required 3 search steps, should not be found with max. 2 steps
-    with caplog.at_level("WARNING"):
+    # Test area for which 2 larger areas exist, the smaller one should be chosen
+    with caplog.at_level("INFO"):
         assert (
             check_area_availability(
-                smaller_area_coordinates, 0.1, [(2025, "01")], max_search_width=2
+                existing_area_coordinates_with_2_areas, 0.1, [(2025, "01")]
             )
-            == smaller_area_coordinates
+            == smaller_containing_area_coordinates
         )
-        assert (
-            "No larger area found within search limits (max. 2 total steps) for time: "
-            "01 2025 - 01 2025 that fully contains latitude: 46.5 - 46.9, longitude: 10.5 - 10.8"
-        ) in caplog.text
+        assert ("Found existing weather data file(s) for ") in caplog.text
+        assert ("containing required area") in caplog.text
 
     caplog.clear()
 
-    # No data should be found for an unavailable time period for larger area
+    # Test area for which no data are available, original area should be returned
+    with caplog.at_level("WARNING"):
+        assert (
+            check_area_availability(non_existing_area_coordinates, 0.1, [(2025, "01")])
+            == non_existing_area_coordinates
+        )
+        assert (
+            "No existing area with weather data found for time period: "
+        ) in caplog.text
+        assert ("Using original area coordinates.") in caplog.text
+
+    caplog.clear()
+
+    # No data should be found for an unavailable time period
     with caplog.at_level("WARNING"):
         assert (
             check_area_availability(
@@ -528,5 +549,126 @@ def test_check_area_availability(caplog):
             == smaller_area_coordinates
         )
         assert (
-            "No larger area found within search limits (max. 10 total steps) for time: "
+            "No existing weather data files found for time period: no_months 2025 - no_months 2025. "
+            "Using original area coordinates."
         ) in caplog.text
+
+
+def test_get_available_grib_files():
+    """Test retrieval of available GRIB files from local folder and OPeNDAP server."""
+
+    local_folder = Path("weatherDataRaw")
+
+    # Test with area for which data are available
+    # (even if local folder does not exist or is empty, OPeNDAP server contains matching files)
+    available_files = get_available_grib_files(local_folder, [(2025, "01")])
+    assert len(available_files) > 0
+
+    # Result must be a list of str objects with .grib suffix
+    for file in available_files:
+        assert isinstance(file, str)
+        assert file.endswith(".grib")
+
+    # Test with unavailable time period
+    assert get_available_grib_files(local_folder, [(2025, "no_months")]) == []
+
+
+def test_get_opendap_file_list():
+    """Test retrieval of available GRIB files from OPeNDAP server."""
+
+    # Test with area for which data are available
+    available_files = get_opendap_file_list("weatherDataRaw", [(2025, "01")])
+    assert len(available_files) > 0
+
+    # Result must be a list of str objects with .grib suffix
+    for file in available_files:
+        assert isinstance(file, str)
+        assert file.endswith(".grib")
+
+    # Test with unavailable time period
+    assert get_opendap_file_list("weatherDataRaw", [(2025, "no_months")]) == []
+
+
+def test_parse_area_coordinates_with_times_from_files():
+    """Test parsing of area coordinates with time periods from file names."""
+    file_names = [
+        "lat11.0_11.1_lon1.2_2.3__2020_01-04__hourly.grib",
+        "lat12.3_12.4_lon7.8_7.9__2020_09-12__hourly.grib",
+        "lat12.3_12.4_lon7.8_7.9__2021_01__hourly.grib",
+        "lat13.0_13.5_lon8.0_8.5__2019_01-04__hourly.grib",
+        "lat13.0_13.5_lon8.0_8.5__2019_05-08__hourly.grib",
+        "lat13.0_13.5_lon8.0_8.5__2019_09-12__hourly.grib",
+    ]
+
+    expected_output = {
+        (11.0, 11.1, 1.2, 2.3): {(2020, "01-04")},
+        (12.3, 12.4, 7.8, 7.9): {(2020, "09-12"), (2021, "01")},
+        (13.0, 13.5, 8.0, 8.5): {(2019, "01-04"), (2019, "05-08"), (2019, "09-12")},
+    }
+
+    assert (
+        parse_area_coordinates_with_times_from_files(file_names, 1) == expected_output
+    )
+
+
+def test_find_containing_areas_with_time_coverage():
+    """Test finding containing areas with time coverage from available files."""
+    available_files = [
+        "lat11.0_11.1_lon1.2_2.3__2020_01-04__hourly.grib",
+        "lat11.0_12.0_lon1.2_2.3__2020_01-04__hourly.grib",
+        "lat11.0_12.0_lon1.2_2.3__2020_05-08__hourly.grib",
+        "lat11.0_12.0_lon1.2_2.3__2020_09-12__hourly.grib",
+        "lat11.0_13.1_lon1.2_2.3__2020_01-04__hourly.grib",
+        "lat1.0_3.1_lon1.2_2.3__2020_05-08__hourly.grib",  # not containing the target area
+    ]
+    available_areas_with_times = parse_area_coordinates_with_times_from_files(
+        available_files, 1
+    )
+
+    required_area = {
+        "lat_start": 11.0,
+        "lat_end": 11.1,
+        "lon_start": 1.2,
+        "lon_end": 1.5,
+    }
+    months_list = [(2020, "01-04"), (2020, "05-08"), (2020, "09-12")]
+
+    expected_output = [
+        {
+            "area": {
+                "lat_start": 11.0,
+                "lat_end": 11.1,
+                "lon_start": 1.2,
+                "lon_end": 2.3,
+            },
+            "coverage_count": 1,
+            "times": {(2020, "01-04")},
+        },
+        {
+            "area": {
+                "lat_start": 11.0,
+                "lat_end": 12.0,
+                "lon_start": 1.2,
+                "lon_end": 2.3,
+            },
+            "coverage_count": 3,
+            "times": {(2020, "01-04"), (2020, "05-08"), (2020, "09-12")},
+        },
+        {
+            "area": {
+                "lat_start": 11.0,
+                "lat_end": 13.1,
+                "lon_start": 1.2,
+                "lon_end": 2.3,
+            },
+            "coverage_count": 1,
+            "times": {(2020, "01-04")},
+        },
+    ]
+
+    assert (
+        find_containing_areas_with_time_coverage(
+            required_area, available_areas_with_times, months_list
+        )
+        == expected_output
+    )

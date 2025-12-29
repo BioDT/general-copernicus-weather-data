@@ -705,6 +705,13 @@ def check_area_availability(area_coordinates, resolution, months_list):
         dict: Dictionary with 'lat_start', 'lat_end', 'lon_start' and 'lon_end' keys of an available area if found,
             otherwise the original area_coordinates.
     """
+
+    def _calculate_area_size(area):
+        """Helper function to calculate area size."""
+        lat_range = area["lat_end"] - area["lat_start"]
+        lon_range = area["lon_end"] - area["lon_start"]
+        return lat_range * lon_range
+
     precision = get_max_decimal_digits([resolution])
 
     # Get list of available files
@@ -738,7 +745,7 @@ def check_area_availability(area_coordinates, resolution, months_list):
 
     if not containing_areas_with_coverage:
         logger.warning(
-            f"No existing area found for time period: "
+            f"No existing area with weather data found for time period: "
             f"{months_list[0][1]} {months_list[0][0]} - {months_list[-1][1]} {months_list[-1][0]} "
             "that fully contains "
             f"latitude: {area_coordinates['lat_start']} - {area_coordinates['lat_end']}, "
@@ -750,19 +757,28 @@ def check_area_availability(area_coordinates, resolution, months_list):
     # Return area with best time coverage (then smallest if tied)
     best_area_info = max(
         containing_areas_with_coverage,
-        key=lambda x: (x["coverage_count"], -calculate_area_size(x["area"])),
+        key=lambda x: (x["coverage_count"], -_calculate_area_size(x["area"])),
     )
     best_area = best_area_info["area"]
     coverage_count = best_area_info["coverage_count"]
     total_count = len(months_list)
 
-    logger.info(
-        "Found existing weather data file(s) for "
-        f"latitude: {best_area['lat_start']} - {best_area['lat_end']}, "
-        f"longitude: {best_area['lon_start']} - {best_area['lon_end']} "
-        f"(containing required area, covering {coverage_count}/{total_count} required time periods). "
-        "Using these coordinates."
-    )
+    if best_area == area_coordinates:
+        logger.info(
+            "Found existing weather data file(s) for the required area "
+            f"latitude: {best_area['lat_start']} - {best_area['lat_end']}, "
+            f"longitude: {best_area['lon_start']} - {best_area['lon_end']} "
+            f"(covering {coverage_count}/{total_count} required time periods). "
+            "Using these coordinates."
+        )
+    else:
+        logger.info(
+            "Found existing weather data file(s) for "
+            f"latitude: {best_area['lat_start']} - {best_area['lat_end']}, "
+            f"longitude: {best_area['lon_start']} - {best_area['lon_end']} "
+            f"(containing required area, covering {coverage_count}/{total_count} required time periods). "
+            "Using these coordinates."
+        )
 
     return best_area
 
@@ -918,7 +934,6 @@ def find_containing_areas_with_time_coverage(
         ):
             # Count how many required time periods are available for this area
             coverage_count = len(required_times & available_times)
-
             containing_areas.append(
                 {
                     "area": area,
@@ -928,18 +943,3 @@ def find_containing_areas_with_time_coverage(
             )
 
     return containing_areas
-
-
-def calculate_area_size(area):
-    """
-    Calculate the size of an area (for finding smallest containing area).
-
-    Parameters:
-        area (dict): Area coordinates dictionary.
-
-    Returns:
-        float: Area size (lat_range * lon_range).
-    """
-    lat_range = area["lat_end"] - area["lat_start"]
-    lon_range = area["lon_end"] - area["lon_start"]
-    return lat_range * lon_range
