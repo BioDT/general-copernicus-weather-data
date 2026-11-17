@@ -21,7 +21,7 @@ from copernicus import get_weather_data
 
 years = list(range(2022, 2025))
 coordinates = [{"lat": 51.123456, "lon": 11.987654}, {"lat": 51.234, "lon": 11.876}, {"lat": 51.33, "lon": 11.66}]
-get_weather_data(years, coordinates)
+get_weather_data(years, coordinates, target_folder="weatherDataPrepared")
 ```
 
 Full function signature: 
